@@ -44,7 +44,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5174", "http
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "version": __version__, "capabilities": ["package", "validate", "pdf", "png", "jpg", "preview", "system-fonts", "font-inspection", "free-transform", "non-destructive-mask", "image-adjustments", "smart-alignment", "content-labels", "layout-recommendation", "import-object-analysis", "multi-page-pdf-import", "studio-storyboard", "reference-layouts", "decomposed-demo"]}
+    return {"ok": True, "version": __version__, "capabilities": ["package", "validate", "pdf", "png", "jpg", "preview", "system-fonts", "font-inspection", "free-transform", "non-destructive-mask", "image-adjustments", "smart-alignment", "cross-board-clipboard", "content-labels", "layout-recommendation", "import-object-analysis", "multi-page-pdf-import", "studio-storyboard", "reference-layouts", "decomposed-demo"]}
 
 
 @app.get("/api/demo/decomposed-panel")

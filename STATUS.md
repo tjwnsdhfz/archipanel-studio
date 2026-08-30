@@ -1,4 +1,4 @@
-# ArchiPanel Studio 1.2.1 상태
+# ArchiPanel Studio 1.2.2 상태
 
 최종 갱신: 2026-08-30 (Asia/Seoul)
 
@@ -8,7 +8,7 @@
 
 ## 현재 상태
 
-Studio 1.2.1이 `http://127.0.0.1:8766/`에서 로컬 실행된다.
+Studio 1.2.2가 `http://127.0.0.1:8766/`에서 로컬 실행된다.
 
 - PanelProject 1.0/1.1 → 1.2 마이그레이션과 원본 스냅샷
 - `Ctrl+T` 자유 변형: mm 수치, 비율 잠금, 회전, X/Y 기울기, 반전, 3×3 기준점, Enter 단일 이력, Esc 원상 복원
@@ -26,6 +26,7 @@ Studio 1.2.1이 `http://127.0.0.1:8766/`에서 로컬 실행된다.
 - 성긴 콘텐츠 그룹을 실제 요소 단위로 재포장하고 최대 12행의 제한된 결정론 탐색으로 빈 공간과 gutter를 최적화
 - 추천 카드의 채움률을 슬롯이 아닌 실제 요소 bbox 면적으로 계산하고 80% 미만은 검토 경고
 - Normal·Multiply·Screen·Overlay·Darken·Lighten 레이어 혼합 모드와 인쇄 합성 경고
+- 보드 간 내부 클립보드: `Ctrl+C`, 5mm 오프셋 `Ctrl+V`, 동일 mm 좌표 `Ctrl+Shift+V`; 그룹·콘텐츠 블록·자산 연결 보존
 - Photoshop 대비 기능 감사표와 사용자 자산을 제외하는 GitHub 배포용 Windows CI
 
 ## 변경 파일
@@ -53,7 +54,7 @@ Studio 1.2.1이 `http://127.0.0.1:8766/`에서 로컬 실행된다.
 ## 검증
 
 - Python `.venv` 회귀 테스트: 23개 통과
-- 프런트엔드 Vitest: 7개 파일 17개 테스트 통과
+- 프런트엔드 Vitest: 7개 파일 19개 테스트 통과
 - TypeScript strict와 Vite production build 통과
 - Windows 글꼴 706 face 검색, 한글 지원 74 face, KoPub 6개 별칭 확인
 - A2 가로 420×210mm QA PDF: TrimBox 실제 크기 오차 0.001mm 미만, bleed 포함 MediaBox 426×216mm
@@ -69,9 +70,10 @@ Studio 1.2.1이 `http://127.0.0.1:8766/`에서 로컬 실행된다.
 - 브라우저 추천안 적용 화면 육안 검토와 콘솔 오류·경고 0, 검증 캡처 `output/playwright/studio12-import-auto-layout.png`
 - Multiply 합성 색상과 보드 단위 래스터화 회귀 통과, 비혼합 보드는 기존 벡터 출력 경로 유지
 - 실제 브라우저 Preflight에서 `blend-board-rasterized` 안내 표시, 콘솔 오류·경고 0, 캡처 `output/playwright/studio121-blend-preflight.png`
-- 로컬 `/api/health` 버전 1.2.1 응답과 분해 데모 14개 영역·3개 추천안 재생성 확인
+- 실제 분해 예시에서 대표 렌더를 원본 비교 보드로 동일 좌표 붙여넣기 성공, Undo 활성화와 콘솔 오류·경고 0, 캡처 `output/playwright/studio122-cross-board-paste.png`
+- 로컬 `/api/health` 버전 1.2.2 응답과 분해 데모 14개 영역·3개 추천안 재생성 확인
 - 공개 GitHub 저장소 `https://github.com/tjwnsdhfz/archipanel-studio` 생성, 사용자 패널·개인 경로·출력물 제외 확인
-- GitHub Actions Windows 검증 `33296717377` 통과: 공개 환경 Python 12개 통과·로컬 전용 11개 건너뜀, 웹 17개 통과, production build 통과
+- GitHub Actions 1.2.1 Windows 검증 `33296717377` 통과: 공개 환경 Python 12개 통과·로컬 전용 11개 건너뜀, 웹 17개 통과, production build 통과
 
 ## 블로커
 

@@ -2,8 +2,10 @@ import { create } from "zustand";
 import { produce } from "immer";
 import type { AlignMode, AlignReference, DistributeMode } from "./alignment";
 import { alignElements, distributeElements, tidyGrid } from "./alignment";
-import type { AssetRef, LayoutProposalV1, PanelBoard, PanelElement, PanelProjectV1, Tool } from "./types";
+import type { AssetRef, LayoutProposalV1, PanelBoard, PanelContentBlock, PanelElement, PanelProjectV1, Tool } from "./types";
 import { makeBoard, makeProject, migrateProject, newId, syncBoardPrintProfile } from "./types";
+
+type StudioClipboard = { elements: PanelElement[]; contentBlocks: PanelContentBlock[]; pasteSerial: number };
 
 type StudioState = {
   project: PanelProjectV1 | null;
@@ -19,6 +21,7 @@ type StudioState = {
   transformBaseline: PanelProjectV1 | null;
   alignmentReference: AlignReference;
   keyObjectId: string | null;
+  clipboard: StudioClipboard | null;
   loadProject: (project: PanelProjectV1) => void;
   createProject: (name?: string) => void;
   closeProject: () => void;
@@ -32,6 +35,8 @@ type StudioState = {
   updateElement: (id: string, patch: Partial<PanelElement>, history?: boolean) => void;
   deleteSelected: () => void;
   duplicateSelected: () => void;
+  copySelected: () => void;
+  pasteClipboard: (inPlace?: boolean) => void;
   groupSelected: () => void;
   ungroupSelected: () => void;
   addBoard: (board?: PanelBoard) => void;
@@ -56,13 +61,13 @@ const clone = <T,>(value: T): T => structuredClone(value);
 
 export const useStudio = create<StudioState>((set, get) => ({
   project: null, activeBoardId: null, selectedIds: [], tool: "select", zoom: 1,
-  savedAt: null, dirty: false, past: [], future: [], transformMode: false, transformBaseline: null, alignmentReference: "selection", keyObjectId: null,
-  loadProject: (input) => { const project = migrateProject(input); set({ project: clone(project), activeBoardId: project.boards[0]?.id ?? null, selectedIds: [], past: [], future: [], dirty: false, savedAt: project.updatedAt }); },
+  savedAt: null, dirty: false, past: [], future: [], transformMode: false, transformBaseline: null, alignmentReference: "selection", keyObjectId: null, clipboard: null,
+  loadProject: (input) => { const project = migrateProject(input); set({ project: clone(project), activeBoardId: project.boards[0]?.id ?? null, selectedIds: [], past: [], future: [], dirty: false, savedAt: project.updatedAt, clipboard: null }); },
   createProject: (name) => {
     const project = makeProject(name);
-    set({ project, activeBoardId: project.boards[0].id, selectedIds: [], past: [], future: [], dirty: true, savedAt: null });
+    set({ project, activeBoardId: project.boards[0].id, selectedIds: [], past: [], future: [], dirty: true, savedAt: null, clipboard: null });
   },
-  closeProject: () => set({ project: null, activeBoardId: null, selectedIds: [], past: [], future: [], dirty: false }),
+  closeProject: () => set({ project: null, activeBoardId: null, selectedIds: [], past: [], future: [], dirty: false, clipboard: null }),
   setTool: (tool) => set({ tool }),
   setZoom: (zoom) => set({ zoom: Math.min(4, Math.max(0.2, zoom)) }),
   setSelection: (selectedIds) => set({ selectedIds, keyObjectId: selectedIds.at(-1) ?? null }),
@@ -124,6 +129,43 @@ export const useStudio = create<StudioState>((set, get) => ({
       }
     });
     set({ selectedIds: newIds });
+  },
+  copySelected: () => {
+    const state = get();
+    if (!state.project || !state.selectedIds.length) return;
+    const selectedIds = new Set(state.selectedIds);
+    const selected = state.project.elements.filter((element) => selectedIds.has(element.id) && element.type !== "group");
+    if (!selected.length || new Set(selected.map((element) => element.boardId)).size !== 1) return;
+    const groups = state.project.elements.filter((element) => element.type === "group" && element.childIds.length > 1 && element.childIds.every((id) => selectedIds.has(id)));
+    const contentBlocks = state.project.contentBlocks.filter((block) => block.elementIds.length > 0 && block.elementIds.every((id) => selectedIds.has(id)));
+    set({ clipboard: { elements: clone([...selected, ...groups]), contentBlocks: clone(contentBlocks), pasteSerial: 0 } });
+  },
+  pasteClipboard: (inPlace = false) => {
+    const state = get(); const clipboard = state.clipboard; const boardId = state.activeBoardId;
+    const board = state.project?.boards.find((item) => item.id === boardId);
+    if (!state.project || !clipboard || !board || !clipboard.elements.length) return;
+    const targetBoardId = board.id;
+    const sourceElements = clipboard.elements.filter((element) => element.type !== "group");
+    if (!sourceElements.length) return;
+    const idMap = new Map(clipboard.elements.map((element) => [element.id, newId()]));
+    const minX = Math.min(...sourceElements.map((element) => element.xMm)); const minY = Math.min(...sourceElements.map((element) => element.yMm));
+    const maxX = Math.max(...sourceElements.map((element) => element.xMm + element.widthMm)); const maxY = Math.max(...sourceElements.map((element) => element.yMm + element.heightMm));
+    const step = inPlace ? 0 : 5 * (clipboard.pasteSerial + 1); let dx = step; let dy = step;
+    const safe = Math.max(0, board.safeMarginMm); const availableWidth = board.widthMm - safe * 2; const availableHeight = board.heightMm - safe * 2;
+    if (maxX - minX <= availableWidth) { if (minX + dx < safe) dx = safe - minX; if (maxX + dx > board.widthMm - safe) dx = board.widthMm - safe - maxX; }
+    if (maxY - minY <= availableHeight) { if (minY + dy < safe) dy = safe - minY; if (maxY + dy > board.heightMm - safe) dy = board.heightMm - safe - maxY; }
+    const newSelection = sourceElements.map((element) => idMap.get(element.id)!);
+    state.commit((draft) => {
+      const targetBoard = draft.boards.find((item) => item.id === targetBoardId); if (!targetBoard) return;
+      for (const source of clipboard.elements) {
+        const copy = { ...clone(source), id: idMap.get(source.id)!, boardId: targetBoardId, name: `${source.name} 복사`, xMm: source.xMm + dx, yMm: source.yMm + dy } as PanelElement;
+        if (copy.type === "group") copy.childIds = copy.childIds.map((id) => idMap.get(id)).filter(Boolean) as string[];
+        draft.elements.push(copy); targetBoard.elementIds.push(copy.id);
+      }
+      const readingStart = Math.max(0, ...draft.contentBlocks.filter((block) => block.boardId === targetBoardId).map((block) => block.readingOrder));
+      clipboard.contentBlocks.forEach((source, index) => draft.contentBlocks.push({ ...clone(source), id: newId(), boardId: targetBoardId, elementIds: source.elementIds.map((id) => idMap.get(id)).filter(Boolean) as string[], readingOrder: readingStart + index + 1 }));
+    });
+    set({ selectedIds: newSelection, clipboard: { ...clipboard, pasteSerial: clipboard.pasteSerial + 1 } });
   },
   groupSelected: () => {
     const state = get();

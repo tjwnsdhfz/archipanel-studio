@@ -48,6 +48,17 @@ ArchiPanel Studio는 Photoshop 전체를 재현하지 않고, 건축 패널의 `
 4. 선택 영역 저장·불러오기와 mask 썸네일
 5. 패널 컴포넌트와 Layer Comp 형태의 버전 비교
 
+## GitHub 유사 프로젝트 비교 · 2026-08-30
+
+건축 패널 제작에만 집중한 성숙한 오픈소스 편집기는 검색 결과에서 확인하지 못했다. 대신 범용 디자인 편집기의 반복되는 작업 패턴을 비교했다.
+
+- [YFT Design](https://github.com/dromara/yft-design) — Fabric.js 기반 포스터 편집, PDF/PSD 분석, 눈금자와 가이드 구조
+- [Vue Fabric Editor](https://github.com/ikuaitu/vue-fabric-editor) — 사용자 글꼴·자산·템플릿·단축키를 플러그인형으로 제공
+- [Suika](https://github.com/F-star/suika) — 여러 캔버스 사이 복사·붙여넣기, 정렬, 레이어, 그룹, 눈금자와 JSON/SVG 입출력
+- [Excalidraw](https://github.com/excalidraw/excalidraw) — 공개 JSON 형식, 이미지·클립보드 출력, Undo/Redo
+
+Studio는 mm/DPI 인쇄 계약, PDF 원본 벡터 유지, 승인 콘텐츠 라벨과 PPTX 역추적에서 건축 패널에 특화되어 있다. 반면 다중 보드 사이 재사용 동선이 약했다. 이에 1.2.2에서 내부 보드 클립보드를 추가했다. 복사한 요소는 새 ID를 받고 원본 자산 참조, crop/mask/변형, 완전 선택된 그룹, 승인된 콘텐츠 블록 관계를 유지한다. `Ctrl+V`는 5mm 간격으로 붙이고 `Ctrl+Shift+V`는 다른 보드에서도 원래 mm 좌표를 유지한다. 모든 붙여넣기는 하나의 Undo 명령이다.
+
 ## 공식 비교 자료
 
 - [Adobe Smart Objects](https://helpx.adobe.com/photoshop/desktop/create-manage-layers/smart-objects/smart-objects-overview-and-benefits.html)
