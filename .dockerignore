@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.playwright-cli
+analysis
+assets
+demo-assets
+output
+tmp
+web/dist
+web/node_modules
+web/.vite
+web/*.tsbuildinfo

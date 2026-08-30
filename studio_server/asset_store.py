@@ -9,12 +9,20 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from .deployment import settings as deployment_settings
+
 CHUNK_BYTES = 32 * 1024 * 1024
-MAX_SOURCE_BYTES = 2 * 1024 * 1024 * 1024
+MAX_SOURCE_BYTES = deployment_settings().max_source_bytes
 SESSION_TTL_SECONDS = 24 * 60 * 60
 
 
 def store_root() -> Path:
+    configured = os.environ.get("ARCHIPANEL_DATA_DIR", "").strip()
+    if configured:
+        root = Path(configured).expanduser().resolve()
+        (root / "assets").mkdir(parents=True, exist_ok=True)
+        (root / "uploads").mkdir(parents=True, exist_ok=True)
+        return root
     base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
     root = base / "ArchiPanel Studio"
     (root / "assets").mkdir(parents=True, exist_ok=True)
@@ -60,7 +68,7 @@ class UploadSession:
 def create_session(name: str, size: int, file_sha256: str | None = None) -> UploadSession:
     cleanup_expired_sessions()
     if size <= 0 or size > MAX_SOURCE_BYTES:
-        raise ValueError("PSD/PSB 원본은 0바이트보다 크고 2GB 이하여야 합니다.")
+        raise ValueError(f"PSD/PSB 원본은 0바이트보다 크고 {MAX_SOURCE_BYTES // (1024 * 1024)}MB 이하여야 합니다.")
     suffix = Path(name).suffix.lower()
     if suffix not in {".psd", ".psb"}:
         raise ValueError("청크 원본은 PSD 또는 PSB만 지원합니다.")

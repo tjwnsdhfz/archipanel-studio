@@ -177,3 +177,49 @@ PSD/PSB 원본과 레이어를 비파괴 연결하고, 승인된 패널 근거�
 4. AI 초안의 문장·source block/element ID·시간 합계를 검토하고 웹에서 승인한다.
 5. **웹에서 PPTX 생성**으로 다운로드한 뒤 발표자 노트의 source ID로 HTML 패널 원본을 역추적한다.
 6. 후속 우선순위는 HTML CSS 폰트 파일 동반 가져오기, 슬라이드 레이아웃 직접 교체, 리허설 타이머와 AI 응답 스트리밍이다.
+
+---
+
+# 2026-08-31 · 접속 복구 및 외부 배포 준비
+
+## 목적
+
+Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서 사용할 수 있는 안전한 접속 경로와 GitHub 기반 서버 배포 구성을 만든다.
+
+## 현재 상태
+
+- FastAPI를 `0.0.0.0:8766`으로 다시 실행했다.
+- 이 PC, 같은 LAN, Tailscale 전용 HTTPS의 루트 페이지와 `/api/health`가 모두 HTTP 200이다.
+- Tailscale의 기존 443/8765 서비스를 보존하고 Studio만 HTTPS 8443으로 연결했다.
+- Docker Compose와 Render Blueprint에서 공개 모드는 Basic Auth, 서버 시스템 글꼴 차단, 환경별 업로드 한도, 영구 데이터 디렉터리를 적용한다.
+- 로컬/Tailscale 모드는 검증된 PPTX 런타임을 감지하며 `/api/health`에 `verified-pptx-export`를 표시한다.
+- Docker/Render에는 비공개 Artifact Tool을 포함하지 않으며 PPTX 요청은 명시적 503을 반환한다. PDF/PNG/JPG와 설계설명서 PDF는 계속 제공한다.
+
+## 변경 파일
+
+- `studio_server/deployment.py`, `studio_server/app.py`, `studio_server/asset_store.py`, `archipanel_studio.py`
+- `START_STUDIO_LAN.cmd`
+- `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.env.example`, `render.yaml`
+- `docs/DEPLOYMENT.md`, `README.md`
+- `tests/test_deployment.py`, `.github/workflows/ci.yml`, `.gitignore`
+
+## 검증
+
+- Python: 36개 통과
+- Web: Vitest 7개 파일·19개 통과, TypeScript/Vite production build 통과
+- 공개 모드 실제 서버: `/api/health` 200, 미인증 `/` 401, 인증 `/` 200, 인증 후 시스템 글꼴 API 403
+- 로컬 실제 서버: `127.0.0.1`, LAN IPv4, Tailscale HTTPS에서 앱 제목 `ArchiPanel Studio`와 HTTP 200 확인
+- 로컬 health: `deploymentMode=local`, `authenticationRequired=false`, `verified-pptx-export=true`
+- GitHub Actions에 Linux Docker BuildKit 컨테이너 빌드 검증 작업 추가
+
+## 블로커
+
+- Render의 실제 외부 HTTPS URL 생성은 사용자의 Render 계정 연결, 유료 1 CPU·2GB/5GB 디스크 승인, `ARCHIPANEL_AUTH_PASSWORD` 입력이 필요하므로 아직 배포 완료로 주장하지 않는다.
+- 이 PC에는 Docker가 설치되어 있지 않아 로컬 컨테이너 실행 검증은 할 수 없다. push 후 GitHub Actions 컨테이너 작업으로 검증한다.
+- 공개 컨테이너의 편집 가능한 PPTX 생성은 공개 배포 가능한 대체 렌더 워커와 슬라이드별 렌더 QA가 구현되기 전까지 비활성이다. 현재 Windows 로컬/Tailscale 경로에서는 기존 검증 런타임을 사용한다.
+
+## 다음 행동
+
+1. 즉시 사용은 로컬 또는 Tailscale HTTPS 주소로 접속한다.
+2. 공개 인터넷 배포가 필요하면 `https://render.com/deploy?repo=https://github.com/tjwnsdhfz/archipanel-studio`에서 Blueprint를 연결하고 고유 암호를 입력한다.
+3. 생성된 `onrender.com` 주소에서 health, 401 인증 차단, 로그인, 자산 업로드, PDF 출력을 재검증한 뒤에만 공개 배포 완료로 승격한다.

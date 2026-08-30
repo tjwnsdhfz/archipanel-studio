@@ -20,7 +20,7 @@ from typing import Any
 import pymupdf as fitz
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from starlette.background import BackgroundTask
@@ -40,11 +40,13 @@ from studio_server.design_statement import validate_design_statement
 from studio_server.design_statement_pdf import export_design_statement_pdf, render_pdf_pages
 from studio_server.asset_store import resolve_asset as resolve_linked_asset
 from studio_server.psd_support import render_layer as render_psd_layer
+from studio_server.deployment import credentials_valid, settings as deployment_settings
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_DIST = ROOT / "web" / "dist"
-MAX_FILE_BYTES = 700 * 1024 * 1024
-MAX_PROJECT_BYTES = 1500 * 1024 * 1024
+DEPLOYMENT = deployment_settings()
+MAX_FILE_BYTES = DEPLOYMENT.max_file_bytes
+MAX_PROJECT_BYTES = DEPLOYMENT.max_project_bytes
 SYSTEM_FONTS = {alias: {"file": font_path(alias)} for alias in legacy_kopub_aliases()}
 app = FastAPI(title="ArchiPanel Studio Local Service", version=__version__)
 app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5174", "http://localhost:5174"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
@@ -52,9 +54,27 @@ app.include_router(psd_router)
 app.include_router(design_statement_router)
 
 
+@app.middleware("http")
+async def deployment_access_guard(request: Request, call_next: Any):
+    if request.url.path == "/api/health" or credentials_valid(request.headers.get("authorization"), DEPLOYMENT):
+        return await call_next(request)
+    return JSONResponse(
+        status_code=401,
+        content={"detail": "ArchiPanel Studio 접근 인증이 필요합니다."},
+        headers={"WWW-Authenticate": 'Basic realm="ArchiPanel Studio", charset="UTF-8"'},
+    )
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "version": __version__, "capabilities": ["package", "validate", "pdf", "png", "jpg", "preview", "system-fonts", "font-inspection", "free-transform", "non-destructive-mask", "image-adjustments", "smart-alignment", "cross-board-clipboard", "content-labels", "layout-recommendation", "import-object-analysis", "multi-page-pdf-import", "html-panel-import", "design-explanation-data", "studio-storyboard", "generative-ai-storyboard", "design-statement", "psd-psb-chunk-upload", "psd-layer-import", "psd-relink", "reference-layouts", "decomposed-demo"]}
+    capabilities = ["package", "validate", "pdf", "png", "jpg", "preview", "font-inspection", "free-transform", "non-destructive-mask", "image-adjustments", "smart-alignment", "cross-board-clipboard", "content-labels", "layout-recommendation", "import-object-analysis", "multi-page-pdf-import", "html-panel-import", "design-explanation-data", "studio-storyboard", "generative-ai-storyboard", "design-statement", "psd-psb-chunk-upload", "psd-layer-import", "psd-relink", "reference-layouts"]
+    if not DEPLOYMENT.public_mode:
+        capabilities.append("system-fonts")
+    if DEMO_SOURCE.is_file():
+        capabilities.append("decomposed-demo")
+    if _artifact_runtime() is not None:
+        capabilities.append("verified-pptx-export")
+    return {"ok": True, "version": __version__, "deploymentMode": "public" if DEPLOYMENT.public_mode else "local", "authenticationRequired": DEPLOYMENT.auth_enabled, "capabilities": capabilities, "limits": {"fileBytes": MAX_FILE_BYTES, "projectBytes": MAX_PROJECT_BYTES, "psdSourceBytes": DEPLOYMENT.max_source_bytes}}
 
 
 @app.get("/api/demo/decomposed-panel")
@@ -172,11 +192,15 @@ async def reference_analyze(request: Request) -> dict[str, Any]:
 
 @app.get("/api/fonts/system")
 def system_fonts(query: str = "", korean: bool | None = None, embeddable: bool | None = None) -> dict[str, Any]:
+    if DEPLOYMENT.public_mode:
+        raise HTTPException(403, "공개 배포에서는 서버의 시스템 글꼴 목록을 제공하지 않습니다. 프로젝트 글꼴을 업로드하세요.")
     return {"fonts": public_fonts(query, korean, embeddable)}
 
 
 @app.post("/api/fonts/system/rescan")
 def system_fonts_rescan() -> dict[str, Any]:
+    if DEPLOYMENT.public_mode:
+        raise HTTPException(403, "공개 배포에서는 서버 글꼴 재검색을 사용할 수 없습니다.")
     return {"count": refresh_catalog(), "fonts": public_fonts()}
 
 
@@ -198,6 +222,8 @@ async def font_inspect(file: UploadFile = File(...)) -> dict[str, Any]:
 
 @app.get("/api/fonts/system/{font_id}")
 def system_font_file(font_id: str) -> FileResponse:
+    if DEPLOYMENT.public_mode:
+        raise HTTPException(403, "공개 배포에서는 서버 글꼴 파일을 제공하지 않습니다.")
     path = font_path(font_id)
     if not path or not path.is_file():
         raise HTTPException(404, "요청한 로컬 글꼴을 찾을 수 없습니다.")
@@ -352,6 +378,9 @@ async def raster(request: Request) -> FileResponse:
 
 @app.post("/api/presentation/export-pptx")
 async def presentation_export_pptx(request: Request) -> FileResponse:
+    runtime = _artifact_runtime()
+    if runtime is None:
+        raise HTTPException(503, "이 배포에는 검증된 PPTX 렌더 런타임이 없습니다. 로컬 Studio 또는 별도 PPTX 워커를 사용하세요.")
     workspace = await _workspace_from_request(request)
     spec_id = str(workspace.options.get("presentationSpecId", ""))
     spec = next((item for item in workspace.project.get("presentationSpecs", []) if str(item.get("id")) == spec_id), None)
@@ -369,10 +398,8 @@ async def presentation_export_pptx(request: Request) -> FileResponse:
         asset_map = _prepare_studio_slide_assets(workspace)
         spec_path = workspace.root / "studio-presentation.json"; project_path = workspace.root / "studio-project.json"; map_path = workspace.root / "studio-assets.json"; render_dir = workspace.root / "rendered-slides"
         spec_path.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8"); project_path.write_text(json.dumps(workspace.project, ensure_ascii=False), encoding="utf-8"); map_path.write_text(json.dumps(asset_map, ensure_ascii=False), encoding="utf-8")
-        dependencies = Path.home() / ".cache" / "codex-runtimes" / "codex-primary-runtime" / "dependencies" / "node"
-        node = dependencies / "bin" / "node.exe"; module_path = dependencies / "node_modules"
-        if not node.is_file(): raise RuntimeError("번들 Node 런타임을 찾을 수 없습니다.")
-        environment = os.environ.copy(); environment["NODE_PATH"] = str(module_path); environment["ARTIFACT_TOOL_PATH"] = str(module_path / "@oai" / "artifact-tool" / "dist" / "artifact_tool.mjs")
+        node, artifact_tool = runtime
+        environment = os.environ.copy(); environment["NODE_PATH"] = str(artifact_tool.parents[3]); environment["ARTIFACT_TOOL_PATH"] = str(artifact_tool)
         result = subprocess.run([str(node), str(ROOT / "templates" / "build_studio_deck.mjs"), str(spec_path), str(project_path), str(map_path), str(output), str(render_dir)], cwd=ROOT, env=environment, capture_output=True, text=True, encoding="utf-8", timeout=180, check=False)
         if result.returncode != 0: raise RuntimeError((result.stderr or result.stdout).strip()[-3000:])
         renders = sorted(render_dir.glob("slide-*.png")); layouts = sorted(render_dir.glob("slide-*.layout.json"))
@@ -394,15 +421,17 @@ def _approved_design_statement(workspace: "Workspace") -> dict[str, Any]:
 
 @app.post("/api/presentation/design-statement/export-pptx")
 async def design_statement_export_pptx(request: Request) -> FileResponse:
+    runtime = _artifact_runtime()
+    if runtime is None:
+        raise HTTPException(503, "이 배포에는 검증된 PPTX 렌더 런타임이 없습니다. 설계설명서 PDF는 사용할 수 있습니다.")
     workspace = await _workspace_from_request(request)
     try:
         spec = _approved_design_statement(workspace); asset_map = _prepare_studio_slide_assets(workspace)
         output = workspace.root / f"{_safe_filename(workspace.project.get('name', 'project'))}-design-statement.pptx"; render_dir = workspace.root / "design-statement-pptx-renders"
         spec_path=workspace.root/"design-statement.json";project_path=workspace.root/"project.json";map_path=workspace.root/"assets.json"
         spec_path.write_text(json.dumps(spec,ensure_ascii=False),encoding="utf-8");project_path.write_text(json.dumps(workspace.project,ensure_ascii=False),encoding="utf-8");map_path.write_text(json.dumps(asset_map,ensure_ascii=False),encoding="utf-8")
-        dependencies=Path.home()/".cache"/"codex-runtimes"/"codex-primary-runtime"/"dependencies"/"node";node=dependencies/"bin"/"node.exe";modules=dependencies/"node_modules"
-        if not node.is_file(): raise RuntimeError("번들 Node 런타임을 찾을 수 없습니다.")
-        environment=os.environ.copy();environment["NODE_PATH"]=str(modules);environment["ARTIFACT_TOOL_PATH"]=str(modules/"@oai"/"artifact-tool"/"dist"/"artifact_tool.mjs")
+        node,artifact_tool=runtime
+        environment=os.environ.copy();environment["NODE_PATH"]=str(artifact_tool.parents[3]);environment["ARTIFACT_TOOL_PATH"]=str(artifact_tool)
         result=subprocess.run([str(node),str(ROOT/"templates"/"build_design_statement.mjs"),str(spec_path),str(project_path),str(map_path),str(output),str(render_dir)],cwd=ROOT,env=environment,capture_output=True,text=True,encoding="utf-8",timeout=300,check=False)
         if result.returncode!=0: raise RuntimeError((result.stderr or result.stdout).strip()[-3000:])
         if len(list(render_dir.glob("slide-*.png")))!=len(spec.get("pages",[])) or len(list(render_dir.glob("slide-*.layout.json")))!=len(spec.get("pages",[])) or not (render_dir/"montage.webp").is_file(): raise RuntimeError("PPTX 페이지별 렌더 검증이 완전하지 않습니다.")
@@ -493,7 +522,7 @@ async def _copy_upload(upload: UploadFile, target: Path) -> int:
         while chunk := await upload.read(1024 * 1024):
             total += len(chunk)
             if total > MAX_FILE_BYTES:
-                raise HTTPException(413, "단일 파일이 700MB 한도를 넘습니다.")
+                raise HTTPException(413, f"단일 파일이 배포 한도 {MAX_FILE_BYTES // (1024 * 1024)}MB를 넘습니다.")
             stream.write(chunk)
     return total
 
@@ -513,6 +542,18 @@ def _sha256(path: Path) -> str:
 
 def _data_url(path: Path, mime: str) -> str:
     return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
+
+
+def _artifact_runtime() -> tuple[Path, Path] | None:
+    configured_node = os.environ.get("ARCHIPANEL_NODE_PATH", "").strip()
+    configured_tool = os.environ.get("ARCHIPANEL_ARTIFACT_TOOL_PATH", "").strip()
+    if configured_node and configured_tool:
+        node, tool = Path(configured_node).expanduser(), Path(configured_tool).expanduser()
+        return (node, tool) if node.is_file() and tool.is_file() else None
+    dependencies = Path.home() / ".cache" / "codex-runtimes" / "codex-primary-runtime" / "dependencies" / "node"
+    node = dependencies / "bin" / ("node.exe" if os.name == "nt" else "node")
+    tool = dependencies / "node_modules" / "@oai" / "artifact-tool" / "dist" / "artifact_tool.mjs"
+    return (node, tool) if node.is_file() and tool.is_file() else None
 
 
 def _inspect_reference_url(value: str) -> dict[str, Any]:

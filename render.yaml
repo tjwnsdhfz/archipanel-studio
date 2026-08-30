@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: archipanel-studio
+    runtime: docker
+    plan: 1c-2g
+    region: singapore
+    autoDeployTrigger: checksPass
+    healthCheckPath: /api/health
+    maxShutdownDelaySeconds: 120
+    envVars:
+      - key: ARCHIPANEL_PUBLIC_MODE
+        value: "1"
+      - key: ARCHIPANEL_AUTH_USERNAME
+        value: archipanel
+      - key: ARCHIPANEL_AUTH_PASSWORD
+        sync: false
+      - key: ARCHIPANEL_DATA_DIR
+        value: /var/lib/archipanel
+      - key: ARCHIPANEL_MAX_FILE_BYTES
+        value: "268435456"
+      - key: ARCHIPANEL_MAX_PROJECT_BYTES
+        value: "805306368"
+      - key: ARCHIPANEL_MAX_SOURCE_BYTES
+        value: "536870912"
+    disk:
+      name: archipanel-data
+      mountPath: /var/lib/archipanel
+      sizeGB: 5

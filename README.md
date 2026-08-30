@@ -27,11 +27,16 @@ py -3 -m venv .venv
 
 브라우저를 자동으로 열지 않으려면 `--no-browser`를 추가합니다.
 
-## GitHub 배포 형태
+## 다른 기기와 웹 서버에서 접속
 
-이 프로젝트는 브라우저 편집기와 로컬 FastAPI/PyMuPDF 출력 서비스가 한 프로그램으로 동작하므로 정적 GitHub Pages만으로는 PDF 분석·글꼴 검색·정확한 출력 기능을 제공할 수 없습니다. GitHub에는 재현 가능한 소스와 Windows CI를 배포하고, 사용자는 저장소를 내려받아 `START_STUDIO.cmd`로 실행합니다.
+- 이 PC: `START_STUDIO.cmd` → `http://127.0.0.1:8766/`
+- 같은 Wi-Fi: `START_STUDIO_LAN.cmd` → `http://<이 PC IPv4>:8766/`
+- 원격 개인 접속: Tailscale Serve로 8443 HTTPS 연결
+- 공개/자체 서버: `Dockerfile`, `docker-compose.yml`, `render.yaml` 사용
 
-사용자 패널 원본, 로컬 절대 경로가 포함된 분석물, 출력 파일, 글꼴, 가상환경은 저장소에서 제외합니다. GitHub Actions는 Python 테스트와 프런트엔드 테스트·빌드를 매 push마다 다시 검증합니다.
+정적 GitHub Pages만으로는 FastAPI/PyMuPDF 기반 PDF 분석·PSD 처리·정확한 출력이 동작하지 않으므로 전체 앱은 Docker 웹 서비스로 배포합니다. 공개 모드는 브라우저 기본 인증, 서버 시스템 글꼴 비공개, 축소된 업로드 한도와 영구 데이터 디렉터리를 적용합니다. 전체 절차와 로컬/공개 기능 차이는 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)에 있습니다.
+
+사용자 패널 원본, 로컬 절대 경로가 포함된 분석물, 출력 파일, 글꼴, 가상환경은 저장소에서 제외합니다. GitHub Actions는 Python·프런트엔드와 production 컨테이너 빌드를 매 push마다 다시 검증합니다.
 
 ## Studio 1.4 제작 흐름
 
@@ -204,11 +209,11 @@ Vite 개발 서버를 쓸 때는 로컬 API를 별도로 실행하고 `http://12
 - `POST /api/presentation/design-data`
 - `POST /api/presentation/export-pptx`
 
-동적 자산 필드는 `asset__{id}`, 글꼴은 `font__{id}`, 프로젝트 JSON은 `manifest`, 출력 설정은 `options` multipart 필드로 전달합니다. 단일 파일은 700MB, 한 요청은 1.5GB까지 허용하며 작업별 임시 디렉터리는 응답 완료 후 삭제됩니다.
+동적 자산 필드는 `asset__{id}`, 글꼴은 `font__{id}`, 프로젝트 JSON은 `manifest`, 출력 설정은 `options` multipart 필드로 전달합니다. 로컬 기본은 단일 파일 700MB·한 요청 1.5GB이며 공개 기본은 단일 파일 256MB·한 요청 768MB입니다. 작업별 임시 디렉터리는 응답 완료 후 삭제됩니다.
 
 ## 현재 경계
 
-PSD 입출력, Photopea, CMYK/ICC, 펜·베지어, 내용 인식 채우기, AI 피사체 선택, 고급 필터, 원근·메시 워프, 계정·클라우드 협업, 모바일 편집은 포함하지 않습니다. 외부 생성형 AI는 선택 사항이며 로컬 편집·저장·규칙 기반 스토리보드·PPTX 출력은 네트워크 없이 동작합니다. 자동 배치는 승인된 원본 요소의 위치·크기·계층만 바꾸며 잠금 요소와 원본 내용을 수정하지 않습니다. 마스크와 보정이 적용된 PDF는 해당 요소만 래스터화됩니다. 임의 회전·기울기 텍스트의 완전한 벡터 윤곽선 출력과 PPTX의 모든 affine 변형 재현은 후속 보강 대상이며, 현재는 해당 요소만 고해상도 합성하고 Preflight에 명시합니다.
+PSD/PSB 왕복 저장, Photopea, CMYK/ICC, 펜·베지어, 내용 인식 채우기, AI 피사체 선택, 고급 필터, 원근·메시 워프, 계정·클라우드 협업, 모바일 편집은 포함하지 않습니다. PSD/PSB는 레이어 가져오기와 원본 재연결만 지원합니다. 외부 생성형 AI는 선택 사항이며 로컬 편집·저장·규칙 기반 스토리보드·PPTX 출력은 네트워크 없이 동작합니다. 자동 배치는 승인된 원본 요소의 위치·크기·계층만 바꾸며 잠금 요소와 원본 내용을 수정하지 않습니다. 마스크와 보정이 적용된 PDF는 해당 요소만 래스터화됩니다. 임의 회전·기울기 텍스트의 완전한 벡터 윤곽선 출력과 PPTX의 모든 affine 변형 재현은 후속 보강 대상이며, 현재는 해당 요소만 고해상도 합성하고 Preflight에 명시합니다.
 
 ## Legacy inspect mode
 

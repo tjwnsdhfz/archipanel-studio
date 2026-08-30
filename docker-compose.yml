@@ -1,0 +1,18 @@
+services:
+  archipanel-studio:
+    build: .
+    ports:
+      - "127.0.0.1:8766:10000"
+    environment:
+      ARCHIPANEL_PUBLIC_MODE: "1"
+      ARCHIPANEL_AUTH_USERNAME: "${ARCHIPANEL_AUTH_USERNAME:-archipanel}"
+      ARCHIPANEL_AUTH_PASSWORD: "${ARCHIPANEL_AUTH_PASSWORD:?Set ARCHIPANEL_AUTH_PASSWORD in .env}"
+      ARCHIPANEL_MAX_FILE_BYTES: "${ARCHIPANEL_MAX_FILE_BYTES:-268435456}"
+      ARCHIPANEL_MAX_PROJECT_BYTES: "${ARCHIPANEL_MAX_PROJECT_BYTES:-805306368}"
+      ARCHIPANEL_MAX_SOURCE_BYTES: "${ARCHIPANEL_MAX_SOURCE_BYTES:-536870912}"
+    volumes:
+      - archipanel-data:/var/lib/archipanel
+    restart: unless-stopped
+
+volumes:
+  archipanel-data:
