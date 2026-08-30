@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1.1",
+  "id": "studio-sample",
+  "name": "ArchiPanel Studio Sample",
+  "defaultDpi": 300,
+  "colorMode": "RGB",
+  "createdAt": "2026-08-25T00:00:00Z",
+  "updatedAt": "2026-08-25T00:00:00Z",
+  "boards": [
+    {
+      "id": "sample-board",
+      "name": "Sample 420 × 297",
+      "widthMm": 420,
+      "heightMm": 297,
+      "bleedMm": 3,
+      "safeMarginMm": 10,
+      "backgroundColor": "#F4EFE3",
+      "grid": { "enabled": true, "sizeMm": 5, "subdivisions": 1 },
+      "guides": [
+        { "axis": "x", "positionMm": 140, "locked": true },
+        { "axis": "x", "positionMm": 280, "locked": true }
+      ],
+      "elementIds": ["sample-kicker", "sample-title", "sample-rule", "sample-field-1", "sample-field-2", "sample-field-3"],
+      "printProfile": { "targetDpi": 300, "viewingDistanceMm": 1200, "derivedWidthPx": 4961, "derivedHeightPx": 3508 }
+    }
+  ],
+  "elements": [
+    {
+      "id": "sample-kicker", "boardId": "sample-board", "type": "text", "name": "분류 문구",
+      "xMm": 15, "yMm": 14, "widthMm": 120, "heightMm": 8, "rotationDeg": 0, "opacity": 1, "visible": true, "locked": false,
+      "text": "ARCHITECTURE / WORKING BOARD 01", "fontFamily": "Malgun Gothic", "fontSizePt": 8, "lineHeight": 1.2, "letterSpacingPt": 0,
+      "align": "left", "verticalAlign": "top", "color": "#C85D32", "weight": 600, "italic": false, "underline": false, "autoSize": false, "styleRole": "caption"
+    },
+    {
+      "id": "sample-title", "boardId": "sample-board", "type": "text", "name": "패널 제목",
+      "xMm": 15, "yMm": 27, "widthMm": 255, "heightMm": 32, "rotationDeg": 0, "opacity": 1, "visible": true, "locked": false,
+      "text": "SITE / CONCEPT / SYSTEM", "fontFamily": "Malgun Gothic", "fontSizePt": 31, "lineHeight": 1.05, "letterSpacingPt": -0.3,
+      "align": "left", "verticalAlign": "top", "color": "#191A18", "weight": 700, "italic": false, "underline": false, "autoSize": false, "styleRole": "title"
+    },
+    {
+      "id": "sample-rule", "boardId": "sample-board", "type": "shape", "name": "제목 기준선",
+      "xMm": 15, "yMm": 66, "widthMm": 390, "heightMm": 0, "rotationDeg": 0, "opacity": 1, "visible": true, "locked": false,
+      "shape": "line", "fill": "transparent", "stroke": "#191A18", "strokeWidthMm": 0.45, "dash": []
+    },
+    {
+      "id": "sample-field-1", "boardId": "sample-board", "type": "shape", "name": "도면 프레임",
+      "xMm": 15, "yMm": 79, "widthMm": 118, "heightMm": 190, "rotationDeg": 0, "opacity": 1, "visible": true, "locked": false,
+      "shape": "rect", "fill": "#D8D1C4", "stroke": "#858178", "strokeWidthMm": 0.3, "dash": []
+    },
+    {
+      "id": "sample-field-2", "boardId": "sample-board", "type": "shape", "name": "다이어그램 프레임",
+      "xMm": 148, "yMm": 79, "widthMm": 118, "heightMm": 190, "rotationDeg": 0, "opacity": 1, "visible": true, "locked": false,
+      "shape": "rect", "fill": "#C85D32", "stroke": "#803B22", "strokeWidthMm": 0.3, "dash": []
+    },
+    {
+      "id": "sample-field-3", "boardId": "sample-board", "type": "shape", "name": "렌더 프레임",
+      "xMm": 281, "yMm": 79, "widthMm": 124, "heightMm": 190, "rotationDeg": 0, "opacity": 1, "visible": true, "locked": false,
+      "shape": "rect", "fill": "#A8AFAB", "stroke": "#68706C", "strokeWidthMm": 0.3, "dash": []
+    }
+  ],
+  "assets": [],
+  "fonts": [],
+  "contentBlocks": [],
+  "typographyStyles": [
+    { "role": "title", "label": "제목", "fontFamily": "KoPubWorld Dotum_Pro", "fontSizePt": 64, "lineHeight": 1.1, "letterSpacingPt": -0.6, "weight": 700, "color": "#191A18" },
+    { "role": "section", "label": "섹션", "fontFamily": "KoPubWorld Dotum_Pro", "fontSizePt": 32, "lineHeight": 1.18, "letterSpacingPt": -0.2, "weight": 700, "color": "#191A18" },
+    { "role": "body", "label": "본문", "fontFamily": "KoPubWorld Dotum_Pro", "fontSizePt": 18, "lineHeight": 1.35, "letterSpacingPt": 0, "weight": 400, "color": "#282925" },
+    { "role": "caption", "label": "캡션", "fontFamily": "KoPubWorld Dotum_Pro", "fontSizePt": 11, "lineHeight": 1.25, "letterSpacingPt": 0, "weight": 400, "color": "#5E605A" }
+  ],
+  "layoutProposals": [],
+  "presentationSpecs": []
+}

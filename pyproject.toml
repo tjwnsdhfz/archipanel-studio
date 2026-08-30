@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "archipanel-agent"
+version = "0.3.1"
+description = "Local-first architecture panel editor with legacy PDF to storyboard tools"
+requires-python = ">=3.11"
+dependencies = [
+  "pdfplumber>=0.11",
+  "pypdfium2>=4.30",
+  "Pillow>=10",
+  "fastapi>=0.115",
+  "uvicorn>=0.32",
+  "python-multipart>=0.0.18",
+  "PyMuPDF>=1.25",
+  "fonttools>=4.56",
+  "uharfbuzz>=0.45",
+  "brotli>=1.1",
+]
+
+[project.optional-dependencies]
+ocr = ["pytesseract>=0.3.10"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+archipanel = "archipanel_agent.cli:main"
+
+[tool.setuptools]
+packages = ["archipanel_agent", "studio_server"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

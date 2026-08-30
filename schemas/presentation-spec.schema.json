@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.archipanel/schemas/presentation-spec.schema.json",
+  "title": "PresentationSpec v2",
+  "type": "object",
+  "required": ["schema_version", "audience", "duration_minutes", "slide_count", "slides", "source_block_ids", "speaker_notes"],
+  "properties": {
+    "schema_version": {"const": "2.0"}, "audience": {"type": "string"}, "duration_minutes": {"const": 15}, "slide_count": {"const": 16},
+    "slides": {"type": "array", "minItems": 16, "maxItems": 16, "items": {"type": "object", "required": ["number", "title", "description", "purpose", "key_sentence", "expected_seconds", "source_block_ids", "visual_block_ids", "speaker_notes"]}},
+    "source_block_ids": {"type": "array", "items": {"type": "string"}}, "speaker_notes": {"type": "object"}, "review_flags": {"type": "array"}
+  }
+}

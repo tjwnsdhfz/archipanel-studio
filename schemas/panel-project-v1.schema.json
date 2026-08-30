@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archipanel.local/schemas/panel-project-v1.schema.json",
+  "title": "ArchiPanel Studio Project v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "name", "defaultDpi", "colorMode", "boards", "elements", "assets", "fonts", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "id": { "$ref": "#/$defs/id" },
+    "name": { "type": "string", "minLength": 1 },
+    "defaultDpi": { "type": "integer", "minimum": 72, "maximum": 1200 },
+    "colorMode": { "const": "RGB" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "boards": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/board" } },
+    "elements": { "type": "array", "items": { "oneOf": [
+      { "$ref": "#/$defs/textElement" }, { "$ref": "#/$defs/imageElement" },
+      { "$ref": "#/$defs/pdfElement" }, { "$ref": "#/$defs/shapeElement" }, { "$ref": "#/$defs/groupElement" }
+    ] } },
+    "assets": { "type": "array", "items": { "$ref": "#/$defs/asset" } },
+    "fonts": { "type": "array", "items": { "$ref": "#/$defs/font" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_-]+$" },
+    "guide": { "type": "object", "additionalProperties": false, "required": ["axis", "positionMm", "locked"], "properties": { "axis": { "enum": ["x", "y"] }, "positionMm": { "type": "number" }, "locked": { "type": "boolean" } } },
+    "board": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "widthMm", "heightMm", "bleedMm", "safeMarginMm", "backgroundColor", "grid", "guides", "elementIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "name": { "type": "string" },
+        "widthMm": { "type": "number", "exclusiveMinimum": 0, "maximum": 10000 },
+        "heightMm": { "type": "number", "exclusiveMinimum": 0, "maximum": 10000 },
+        "bleedMm": { "type": "number", "minimum": 0, "maximum": 100 },
+        "safeMarginMm": { "type": "number", "minimum": 0, "maximum": 500 },
+        "backgroundColor": { "$ref": "#/$defs/color" },
+        "grid": { "type": "object", "additionalProperties": false, "required": ["enabled", "sizeMm", "subdivisions"], "properties": { "enabled": { "type": "boolean" }, "sizeMm": { "type": "number", "exclusiveMinimum": 0 }, "subdivisions": { "type": "integer", "minimum": 1, "maximum": 20 } } },
+        "guides": { "type": "array", "items": { "$ref": "#/$defs/guide" } },
+        "elementIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }
+      }
+    },
+    "common": {
+      "type": "object",
+      "required": ["id", "boardId", "type", "name", "xMm", "yMm", "widthMm", "heightMm", "rotationDeg", "opacity", "visible", "locked"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "boardId": { "$ref": "#/$defs/id" }, "type": { "type": "string" }, "name": { "type": "string" },
+        "xMm": { "type": "number" }, "yMm": { "type": "number" }, "widthMm": { "type": "number", "minimum": 0 }, "heightMm": { "type": "number", "minimum": 0 },
+        "rotationDeg": { "type": "number" }, "opacity": { "type": "number", "minimum": 0, "maximum": 1 }, "visible": { "type": "boolean" }, "locked": { "type": "boolean" }
+      }
+    },
+    "textElement": {
+      "allOf": [{ "$ref": "#/$defs/common" }, { "type": "object", "required": ["text", "fontFamily", "fontSizePt", "lineHeight", "letterSpacingPt", "align", "verticalAlign", "color", "weight", "italic", "underline", "autoSize"], "properties": {
+        "type": { "const": "text" }, "text": { "type": "string" }, "fontAssetId": { "$ref": "#/$defs/id" }, "fontFamily": { "type": "string" },
+        "fontSizePt": { "type": "number", "exclusiveMinimum": 0 }, "lineHeight": { "type": "number", "exclusiveMinimum": 0 }, "letterSpacingPt": { "type": "number" },
+        "align": { "enum": ["left", "center", "right", "justify"] }, "verticalAlign": { "enum": ["top", "middle", "bottom"] }, "color": { "$ref": "#/$defs/color" },
+        "weight": { "type": "integer", "minimum": 100, "maximum": 900 }, "italic": { "type": "boolean" }, "underline": { "type": "boolean" }, "autoSize": { "type": "boolean" }
+      } }]
+    },
+    "imageElement": { "allOf": [{ "$ref": "#/$defs/common" }, { "type": "object", "required": ["assetId", "cropNormalized", "fit", "flipX", "flipY"], "properties": { "type": { "const": "image" }, "assetId": { "$ref": "#/$defs/id" }, "cropNormalized": { "$ref": "#/$defs/crop" }, "fit": { "enum": ["contain", "cover", "stretch"] }, "flipX": { "type": "boolean" }, "flipY": { "type": "boolean" } } }] },
+    "pdfElement": { "allOf": [{ "$ref": "#/$defs/common" }, { "type": "object", "required": ["assetId", "pageIndex", "clipNormalized", "fit"], "properties": { "type": { "const": "pdf" }, "assetId": { "$ref": "#/$defs/id" }, "pageIndex": { "type": "integer", "minimum": 0 }, "clipNormalized": { "$ref": "#/$defs/crop" }, "fit": { "enum": ["contain", "cover"] } } }] },
+    "shapeElement": { "allOf": [{ "$ref": "#/$defs/common" }, { "type": "object", "required": ["shape", "fill", "stroke", "strokeWidthMm", "dash"], "properties": { "type": { "const": "shape" }, "shape": { "enum": ["rect", "ellipse", "line", "polygon"] }, "fill": { "type": "string" }, "stroke": { "$ref": "#/$defs/color" }, "strokeWidthMm": { "type": "number", "minimum": 0 }, "dash": { "type": "array", "items": { "type": "number", "minimum": 0 } } } }] },
+    "groupElement": { "allOf": [{ "$ref": "#/$defs/common" }, { "type": "object", "required": ["childIds"], "properties": { "type": { "const": "group" }, "childIds": { "type": "array", "items": { "$ref": "#/$defs/id" } } } }] },
+    "crop": { "type": "object", "additionalProperties": false, "required": ["x", "y", "w", "h"], "properties": { "x": { "type": "number", "minimum": 0, "maximum": 1 }, "y": { "type": "number", "minimum": 0, "maximum": 1 }, "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }, "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 } } },
+    "asset": { "type": "object", "required": ["id", "name", "mime", "sizeBytes"], "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string" }, "mime": { "type": "string" }, "sizeBytes": { "type": "integer", "minimum": 0 }, "widthPx": { "type": "integer", "minimum": 1 }, "heightPx": { "type": "integer", "minimum": 1 }, "pageCount": { "type": "integer", "minimum": 1 }, "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "archivePath": { "type": "string" }, "review": { "type": "array", "items": { "type": "string" } } } },
+    "font": { "type": "object", "additionalProperties": false, "required": ["id", "family", "style", "weight", "assetId", "embeddingAllowed"], "properties": { "id": { "$ref": "#/$defs/id" }, "family": { "type": "string" }, "style": { "type": "string" }, "weight": { "type": "integer", "minimum": 100, "maximum": 900 }, "assetId": { "$ref": "#/$defs/id" }, "embeddingAllowed": { "oneOf": [{ "type": "boolean" }, { "const": "unknown" }] } } },
+    "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+  }
+}

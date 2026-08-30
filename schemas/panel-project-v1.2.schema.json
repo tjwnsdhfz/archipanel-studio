@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archipanel.local/schemas/panel-project-v1.2.schema.json",
+  "title": "ArchiPanel Studio Project 1.2",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "defaultDpi", "colorMode", "boards", "elements", "assets", "fonts", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "const": "1.2" },
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "defaultDpi": { "type": "integer", "minimum": 72, "maximum": 1200 },
+    "colorMode": { "const": "RGB" },
+    "boards": { "type": "array", "minItems": 1 },
+    "elements": { "type": "array", "items": { "$ref": "#/$defs/element" } },
+    "assets": { "type": "array" }, "fonts": { "type": "array" }, "contentBlocks": { "type": "array" },
+    "typographyStyles": { "type": "array" }, "layoutProposals": { "type": "array" }, "presentationSpecs": { "type": "array" },
+    "createdAt": { "type": "string", "format": "date-time" }, "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "transform": { "type": "object", "required": ["originX", "originY", "skewXDeg", "skewYDeg", "flipX", "flipY", "lockAspect"], "properties": { "originX": { "enum": [0, 0.5, 1] }, "originY": { "enum": [0, 0.5, 1] }, "skewXDeg": { "type": "number", "minimum": -60, "maximum": 60 }, "skewYDeg": { "type": "number", "minimum": -60, "maximum": 60 }, "flipX": { "type": "boolean" }, "flipY": { "type": "boolean" }, "lockAspect": { "type": "boolean" } } },
+    "element": { "type": "object", "required": ["id", "boardId", "type", "xMm", "yMm", "widthMm", "heightMm", "rotationDeg", "transform"], "properties": { "id": { "type": "string" }, "boardId": { "type": "string" }, "type": { "enum": ["text", "image", "pdf", "shape", "group"] }, "xMm": { "type": "number" }, "yMm": { "type": "number" }, "widthMm": { "type": "number", "minimum": 0 }, "heightMm": { "type": "number", "minimum": 0 }, "rotationDeg": { "type": "number" }, "blendMode": { "enum": ["normal", "multiply", "screen", "overlay", "darken", "lighten"] }, "transform": { "$ref": "#/$defs/transform" }, "mask": { "type": "object" }, "adjustments": { "type": "object" } } }
+  }
+}

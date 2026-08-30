@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.archipanel/schemas/panel-manifest.schema.json",
+  "title": "Architecture Panel Manifest v2",
+  "type": "object",
+  "required": ["schema_version", "source", "physical_layout", "sheets", "blocks", "review_flags", "approval"],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "source": {
+      "type": "object",
+      "required": ["path", "sha256", "media_type", "page_count", "page_image", "preview_pixel_size"],
+      "properties": {
+        "path": {"type": "string"}, "sha256": {"type": "string"}, "media_type": {"enum": ["pdf", "png", "jpg", "jpeg"]},
+        "page_count": {"const": 1}, "page_image": {"type": "string"},
+        "preview_pixel_size": {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "integer"}], "minItems": 2, "maxItems": 2},
+        "original_pixel_size": {"type": ["array", "null"]}, "extraction_method": {"type": "string"}
+      }
+    },
+    "physical_layout": {
+      "type": "object", "required": ["layout_mode", "physical_size_mm", "measurement_source", "sheet_count", "sheet_arrangement"],
+      "properties": {
+        "layout_mode": {"enum": ["single_sheet", "continuous_board", "multi_sheet_board"]},
+        "physical_size_mm": {"type": "array", "prefixItems": [{"type": ["number", "null"]}, {"type": ["number", "null"]}], "minItems": 2, "maxItems": 2},
+        "measurement_source": {"enum": ["measured", "aspect_inferred", "unknown"]}, "sheet_count": {"type": "integer", "minimum": 1},
+        "sheet_arrangement": {"type": "object"}
+      }
+    },
+    "sheets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sheet"}},
+    "blocks": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/block"}},
+    "review_flags": {"type": "array", "items": {"type": "object"}},
+    "approval": {
+      "type": "object", "required": ["status", "approved_fixture"],
+      "properties": {"status": {"enum": ["pending", "approved"]}, "approved_by": {"type": ["string", "null"]}, "approved_at": {"type": ["string", "null"]}, "approved_fixture": {"type": "boolean"}}
+    }
+  },
+  "$defs": {
+    "bbox": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "minItems": 4, "maxItems": 4},
+    "sheet": {"type": "object", "required": ["id", "source_page", "name", "reading_order", "bbox_document_normalized", "physical_size_mm"], "properties": {"id": {"type": "string"}, "source_page": {"const": 1}, "name": {"type": "string"}, "reading_order": {"type": "integer", "minimum": 1}, "bbox_document_normalized": {"$ref": "#/$defs/bbox"}, "physical_size_mm": {"type": "array"}}},
+    "block": {
+      "type": "object", "required": ["id", "source_page", "source_sheet_id", "bbox_normalized", "bbox_sheet_normalized", "label", "reading_order", "text", "confidence", "asset_ref"],
+      "properties": {
+        "id": {"type": "string"}, "source_page": {"const": 1}, "source_sheet_id": {"type": "string"},
+        "bbox_normalized": {"$ref": "#/$defs/bbox"}, "bbox_sheet_normalized": {"$ref": "#/$defs/bbox"},
+        "label": {"enum": ["title","project_info","prologue","context","site_analysis","concept","design_process","massing","program","master_plan","site_plan","floor_plan","plan","circulation","section","elevation","facade","diagram","render","detail","materials","accessibility","performance","caption","source","colophon"]},
+        "subtype": {"type": ["string", "null"]}, "drawing_scale": {"type": ["string", "null"]},
+        "reading_order": {"type": "integer", "minimum": 1}, "story_role": {"type": ["string", "null"]},
+        "text": {"type": "string"}, "confidence": {"type": "number", "minimum": 0, "maximum": 1}, "asset_ref": {"type": "string"}, "parent_block_id": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
