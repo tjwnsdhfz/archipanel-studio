@@ -84,6 +84,7 @@ Studio 1.2.3 코드와 production 웹 빌드가 준비되었다. 실행 중인 8
 - 공개 GitHub 저장소 `https://github.com/tjwnsdhfz/archipanel-studio` 생성, 사용자 패널·개인 경로·출력물 제외 확인
 - GitHub Actions 1.2.1 Windows 검증 `33296717377` 통과: 공개 환경 Python 12개 통과·로컬 전용 11개 건너뜀, 웹 17개 통과, production build 통과
 - GitHub Actions 1.2.2 Windows 검증 `33302214426` 통과: 공개 환경 Python 테스트, 웹 19개 테스트와 production build 통과
+- GitHub Actions 1.2.3 Windows 검증 `33315176089` 통과: 공개 환경 Python 테스트, 웹 19개 테스트와 production build 통과
 - 승인 fixture 설계설명서 `output/design-explanation/ArchiPanel_패널기반_설계설명서_15분_16장.pptx` 생성: 15분·16장, 14개 승인 패널 자산, 16개 발표자 노트와 `[Sources]`, 편집 가능 shape 211개
 - Artifact Tool 16장 PNG와 4×4 montage 개별 육안 검토: 의도하지 않은 겹침·보드 밖 요소·비율 왜곡·깨진 한글 0
 - `slides_test.py`: PPTX 캔버스 overflow 0, 16장 모두 통과
