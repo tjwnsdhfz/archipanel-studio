@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archipanel.local/schemas/design-explanation-data.schema.json",
+  "title": "ArchiPanel DesignExplanationData 1.0",
+  "type": "object",
+  "required": ["schemaVersion", "projectId", "projectName", "audience", "sections", "coverage", "sourceContentBlockIds", "sourceElementIds", "reviewFlags"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "projectId": { "type": "string", "minLength": 1 },
+    "projectName": { "type": "string", "minLength": 1 },
+    "audience": { "type": "string", "minLength": 1 },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "labels", "required", "status", "evidence", "reviewFlags"],
+        "properties": {
+          "id": { "type": "string" }, "title": { "type": "string" }, "labels": { "type": "array", "items": { "type": "string" } },
+          "required": { "type": "boolean" }, "status": { "enum": ["confirmed", "needs_review"] },
+          "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+          "reviewFlags": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["approvedBlockCount", "coveredSectionCount", "totalSectionCount", "missingSectionIds"],
+      "properties": {
+        "approvedBlockCount": { "type": "integer", "minimum": 1 }, "coveredSectionCount": { "type": "integer", "minimum": 0 },
+        "totalSectionCount": { "type": "integer", "minimum": 1 }, "missingSectionIds": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "sourceContentBlockIds": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+    "sourceElementIds": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+    "reviewFlags": { "type": "array", "items": { "type": "string" } },
+    "generatedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": ["contentBlockId", "elementIds", "label", "title", "summary", "confidence"],
+      "properties": {
+        "contentBlockId": { "type": "string" }, "elementIds": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "label": { "type": "string" }, "title": { "type": "string" }, "summary": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

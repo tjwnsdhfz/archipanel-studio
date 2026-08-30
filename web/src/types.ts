@@ -104,10 +104,25 @@ export type LayoutProposalV1 = {
 };
 export type StudioSlideSpec = {
   number: number; title: string; purpose: string; keySentence: string; expectedSeconds: number;
+  designSectionId: string; layoutKind: "cover" | "evidence_map" | "statement" | "image_text" | "hero" | "process" | "matrix" | "technical" | "gallery" | "synthesis" | "closing";
+  evidenceTitles: string[];
   sourceContentBlockIds: UUID[]; sourceElementIds: UUID[]; speakerNotes: string; reviewFlags: string[];
+};
+export type DesignEvidenceV1 = {
+  contentBlockId: UUID; elementIds: UUID[]; label: ContentLabel; title: string; summary: string; confidence: number;
+};
+export type DesignExplanationSectionV1 = {
+  id: string; title: string; labels: ContentLabel[]; required: boolean; status: "confirmed" | "needs_review";
+  evidence: DesignEvidenceV1[]; reviewFlags: string[];
+};
+export type DesignExplanationDataV1 = {
+  schemaVersion: "1.0"; projectId: UUID; projectName: string; audience: string; sections: DesignExplanationSectionV1[];
+  coverage: { approvedBlockCount: number; coveredSectionCount: number; totalSectionCount: number; missingSectionIds: string[] };
+  sourceContentBlockIds: UUID[]; sourceElementIds: UUID[]; reviewFlags: string[]; generatedAt: string;
 };
 export type StudioPresentationSpecV1 = {
   id: UUID; projectId: UUID; audience: string; durationMinutes: number; slideCount: number; slides: StudioSlideSpec[];
+  designExplanationData: DesignExplanationDataV1;
   approvedContentBlockIds: UUID[]; approvalStatus: "draft" | "approved"; createdAt: string; updatedAt: string;
 };
 

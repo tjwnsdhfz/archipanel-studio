@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archipanel.local/schemas/studio-presentation-spec.schema.json",
+  "title": "ArchiPanel StudioPresentationSpec 1.0",
+  "type": "object",
+  "required": ["id", "projectId", "audience", "durationMinutes", "slideCount", "slides", "designExplanationData", "approvedContentBlockIds", "approvalStatus"],
+  "properties": {
+    "id": { "type": "string" }, "projectId": { "type": "string" }, "audience": { "type": "string" },
+    "durationMinutes": { "type": "integer", "minimum": 3, "maximum": 60 }, "slideCount": { "type": "integer", "minimum": 3, "maximum": 60 },
+    "slides": {
+      "type": "array", "minItems": 3, "maxItems": 60,
+      "items": {
+        "type": "object",
+        "required": ["number", "title", "purpose", "keySentence", "expectedSeconds", "designSectionId", "layoutKind", "evidenceTitles", "sourceContentBlockIds", "sourceElementIds", "speakerNotes", "reviewFlags"]
+      }
+    },
+    "designExplanationData": { "$ref": "design-explanation-data.schema.json" },
+    "approvedContentBlockIds": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+    "approvalStatus": { "enum": ["draft", "approved"] }
+  }
+}

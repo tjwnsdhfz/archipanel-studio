@@ -1,4 +1,4 @@
-# ArchiPanel Studio 1.2.2
+# ArchiPanel Studio 1.2.3
 
 건축 패널을 실제 mm 크기로 설계하고 로컬에 저장한 뒤 RGB PDF·PNG·JPG로 출력하는 데스크톱용 웹 편집기입니다. 기존 PDF 블록 검토 및 PPTX 스토리보드 도구는 `legacy` 기능으로 남아 있으며 Studio와 데이터 및 실행 경로가 분리됩니다.
 
@@ -37,7 +37,11 @@ py -3 -m venv .venv
 - 자동 라벨은 원문을 수정하지 않으며 낮은 확신도는 `검토 필요`로 남습니다. 승인된 블록만 추천과 발표자료에 사용됩니다.
 - 참고 레이아웃은 파일 또는 안전한 HTTPS URL과 출처·제작자·라이선스를 기록합니다. `추천 승인` 자료의 보드 비율·열·백색 공간·정규화 블록 벡터만 로컬 k-NN 계산에 사용합니다.
 - 발표 스토리보드는 3–60분, 3–60장 범위에서 만들고 예상 시간 합계를 정확히 맞춥니다. 사용자가 승인하기 전에는 PPTX 버튼이 잠깁니다.
-- PPTX 제목·설명·단순 도형은 편집 가능하며 원본 이미지/PDF crop은 비율을 유지한 래스터 근거로 배치됩니다. 모든 슬라이드 노트에 목적·핵심문장·예상시간·원본 블록/요소 ID가 기록됩니다.
+- 승인 블록은 `프로젝트 정체성 / 문제의식 / 대지·맥락 / 개념 / 과정·매싱 / 프로그램 / 공간 조직 / 배치 / 평면 / 단면·입면 / 재료·성능 / 경험`의 12개 설계 데이터 영역으로 분류됩니다. 근거가 없는 영역은 채워 넣지 않고 `needs_review`로 남깁니다.
+- 기본 15분·16장 설계설명서는 표지 → 근거 지도 → 문제의식 → 맥락 → 개념 → 과정 → 프로그램 → 공간 조직 → 배치 → 평면 → 단면·입면 → 재료·성능 → 경험 → 디테일 → 종합 → 검토 과제 순서입니다.
+- PPTX 제목·설명·단순 도형은 편집 가능하며 원본 이미지/PDF crop은 비율을 유지한 래스터 근거로 배치됩니다. 모든 슬라이드 노트에 목적·핵심문장·예상시간·설계 데이터 영역·원본 블록/요소 ID·`[Sources]`가 기록됩니다.
+
+설계설명 데이터 계약은 `schemas/design-explanation-data.schema.json`, Studio 발표 계약은 `schemas/studio-presentation-spec.schema.json`에 있습니다. 로컬 승인 데모는 `scripts/prepare_design_explanation_demo.py`로 만들며 실제 사용자 승인과 혼동하지 않도록 `approvalFixture.kind=automated-demo`를 기록합니다.
 
 ### 첨부 패널 분해·자동 배치 예시
 
@@ -167,6 +171,7 @@ Vite 개발 서버를 쓸 때는 로컬 API를 별도로 실행하고 `http://12
 - `POST /api/layout/recommend`
 - `POST /api/layout/validate`
 - `POST /api/presentation/storyboard`
+- `POST /api/presentation/design-data`
 - `POST /api/presentation/export-pptx`
 
 동적 자산 필드는 `asset__{id}`, 글꼴은 `font__{id}`, 프로젝트 JSON은 `manifest`, 출력 설정은 `options` multipart 필드로 전달합니다. 단일 파일은 700MB, 한 요청은 1.5GB까지 허용하며 작업별 임시 디렉터리는 응답 완료 후 삭제됩니다.

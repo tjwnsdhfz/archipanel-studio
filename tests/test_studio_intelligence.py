@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from studio_server.intelligence import build_storyboard, recommend_layouts, suggest_content_blocks, validate_layout
+from studio_server.intelligence import build_design_explanation_data, build_storyboard, recommend_layouts, suggest_content_blocks, validate_layout
 from studio_server.demo import BOARD_ID, DEMO_SOURCE, REGIONS, build_demo_payload
 
 
@@ -64,6 +64,29 @@ class StudioIntelligenceTests(unittest.TestCase):
         self.assertEqual(sum(slide["expectedSeconds"] for slide in spec["slides"]), 600)
         self.assertTrue(all(slide["sourceContentBlockIds"] == ["block"] for slide in spec["slides"]))
         self.assertEqual(spec["approvalStatus"], "draft")
+
+    def test_design_explanation_maps_only_approved_evidence_and_flags_missing_data(self) -> None:
+        project = project_fixture()
+        project["contentBlocks"] = [
+            {"id": "concept", "boardId": "board", "elementIds": ["title"], "label": "concept", "title": "연결 개념", "summary": "", "readingOrder": 1, "importance": 5, "confidence": .9, "status": "approved"},
+            {"id": "unapproved", "boardId": "board", "elementIds": ["render"], "label": "render", "title": "미승인 렌더", "summary": "", "readingOrder": 2, "importance": 5, "confidence": .9, "status": "suggested"},
+        ]
+        data = build_design_explanation_data(project, "심사위원")
+        self.assertEqual(data["sourceContentBlockIds"], ["concept"])
+        self.assertNotIn("unapproved", str(data))
+        self.assertIn("identity", data["coverage"]["missingSectionIds"])
+        self.assertTrue(data["reviewFlags"])
+
+    def test_storyboard_uses_architectural_sequence_and_sources_notes(self) -> None:
+        project = project_fixture()
+        project["contentBlocks"] = [
+            {"id": "concept", "boardId": "board", "elementIds": ["title"], "label": "concept", "title": "연결 개념", "summary": "", "readingOrder": 1, "importance": 5, "confidence": 1, "status": "approved"},
+            {"id": "render", "boardId": "board", "elementIds": ["render"], "label": "render", "title": "공간 경험", "summary": "", "readingOrder": 2, "importance": 5, "confidence": 1, "status": "approved"},
+        ]
+        spec = build_storyboard(project, 15, 16, "심사위원")
+        self.assertEqual([slide["layoutKind"] for slide in spec["slides"][:3]], ["cover", "evidence_map", "statement"])
+        self.assertTrue(all("[Sources]" in slide["speakerNotes"] and "[/Sources]" in slide["speakerNotes"] for slide in spec["slides"]))
+        self.assertEqual(sum(slide["expectedSeconds"] for slide in spec["slides"]), 900)
 
 
 if __name__ == "__main__":
