@@ -114,11 +114,15 @@ class StudioTests(unittest.TestCase):
     def test_kopub_catalog_exposes_installed_dotum_and_batang(self) -> None:
         catalog = system_fonts()["fonts"]
         ids = {font["id"] for font in catalog}
+        if "kopub-dotum-medium" not in ids:
+            self.skipTest("KoPub fonts are not installed on this machine")
         self.assertTrue({"kopub-dotum-light", "kopub-dotum-medium", "kopub-dotum-bold"}.issubset(ids))
         self.assertTrue({"kopub-batang-light", "kopub-batang-medium", "kopub-batang-bold"}.issubset(ids))
         self.assertTrue(all(Path(font["file"]).is_file() for font in SYSTEM_FONTS.values()))
 
     def test_kopub_font_is_embedded_in_pdf(self) -> None:
+        if "kopub-dotum-medium" not in SYSTEM_FONTS:
+            self.skipTest("KoPub fonts are not installed on this machine")
         font_id = "system-kopub-dotum-medium"
         font_path = Path(SYSTEM_FONTS["kopub-dotum-medium"]["file"])
         project = deepcopy(fixture())
@@ -135,6 +139,8 @@ class StudioTests(unittest.TestCase):
             document.close()
 
     def test_font_inspection_reports_fingerprint_korean_and_embedding(self) -> None:
+        if "kopub-dotum-medium" not in SYSTEM_FONTS:
+            self.skipTest("KoPub fonts are not installed on this machine")
         metadata = inspect_font(Path(SYSTEM_FONTS["kopub-dotum-medium"]["file"]))
         self.assertEqual(len(metadata["fingerprintSha256"]), 64)
         self.assertTrue(metadata["supportsKorean"])

@@ -24,12 +24,17 @@ RENDERS = ROOT / "output" / "architecture-rendered"
 
 
 class AgentTests(unittest.TestCase):
+    def require_private_fixture(self) -> None:
+        if not FIXTURE.is_file():
+            self.skipTest("approved local fixture is not included in the public repository")
+
     def test_schema_files_are_valid_json(self) -> None:
         for name in ["panel-manifest.schema.json", "presentation-spec.schema.json"]:
             payload = json.loads((ROOT / "schemas" / name).read_text(encoding="utf-8"))
             self.assertTrue(payload["$schema"].endswith("2020-12/schema"))
 
     def test_approved_fixture_and_story_contract(self) -> None:
+        self.require_private_fixture()
         manifest = load_json(FIXTURE)
         self.assertEqual(validate_manifest(manifest), [])
         require_approved_fixture(manifest, allow_fixture=True)
@@ -39,22 +44,26 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(validate_storyboard(manifest, spec), [])
 
     def test_pending_manifest_cannot_export(self) -> None:
+        self.require_private_fixture()
         manifest = load_json(FIXTURE)
         manifest["approval"]["status"] = "pending"
         with self.assertRaises(PermissionError):
             require_approved_fixture(manifest, allow_fixture=True)
 
     def test_review_flags_are_retained_without_correction(self) -> None:
+        self.require_private_fixture()
         manifest = load_json(FIXTURE)
         spec = build_storyboard(manifest)
         self.assertEqual(spec["review_flags"], manifest["review_flags"])
 
     def test_fixture_requires_explicit_cli_flag(self) -> None:
+        self.require_private_fixture()
         manifest = load_json(FIXTURE)
         with self.assertRaises(PermissionError):
             require_approved_fixture(manifest, allow_fixture=False)
 
     def test_editor_contains_editable_contract(self) -> None:
+        self.require_private_fixture()
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
             manifest = load_json(FIXTURE)
@@ -76,6 +85,7 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(manifest["physical_layout"]["layout_mode"], "single_sheet")
 
     def test_editor_server_persists_valid_manifest(self) -> None:
+        self.require_private_fixture()
         import tempfile
         from http.server import ThreadingHTTPServer
         with tempfile.TemporaryDirectory() as directory:
