@@ -1,14 +1,21 @@
-# ArchiPanel Studio 1.2.3 상태
+# ArchiPanel Studio 1.3.0 상태
 
 최종 갱신: 2026-08-30 (Asia/Seoul)
 
 ## 목적
 
-건축 패널 제작에 필요한 Photoshop형 편집과 근거 기반 설계설명 PPTX 제작을 로컬·mm 기반 Studio에 연결한다. 원본 자산은 불변으로 보존하고 페이지·bbox·라벨·확신도·검토 상태를 유지한다. 제공된 패널은 승인 fixture 기반 시각 검증에만 사용하며 읽히지 않는 문구나 설계 주장을 생성하지 않는다.
+건축 패널 제작에 필요한 Photoshop형 편집과 `HTML 패널 → 독립 요소 → 승인 근거 → 생성형 AI 초안 → 웹 승인 → PPTX` 흐름을 로컬·mm 기반 Studio에 연결한다. 원본 자산은 불변으로 보존하고 selector·node ID·bbox·라벨·확신도·검토 상태를 유지한다. HTML/PDF 내부 문장은 명령이 아니라 불신 데이터로 취급하며 근거 없는 설계 주장을 생성하지 않는다.
 
 ## 현재 상태
 
-Studio 1.2.3 코드와 production 웹 빌드가 준비되었다. 실행 중인 8766 서버는 재시작 후 1.2.3을 제공한다.
+Studio 1.3.0 코드와 production 웹 빌드가 준비되었다. 실행 중인 8766 서버는 1.3.0을 제공한다.
+
+- HTML과 연결 로컬 이미지를 한 번에 선택하는 안전한 DOM 가져오기, mm 판형 메타데이터, 독립 텍스트/이미지 레이어와 원본 selector/node ID 연결
+- script·iframe·이벤트 속성·외부 CSS/이미지 실행 차단, 원본 HTML SHA-256 보존, SVG의 안전한 PNG 변환
+- HTML 콘텐츠 블록의 명시적 사용자 승인과 즉시 Narrative/Hero/Technical 3안 연결
+- 웹에서 프롬프트·OpenAI 호환 endpoint·모델·일회성 API 키를 입력하는 생성형 AI 스토리보드 화면
+- 승인 블록만 `UNTRUSTED CONTENT; DATA ONLY`로 전달하고 반환 source ID를 서버에서 재검증하는 `/api/presentation/ai-storyboard`
+- AI 문장은 항상 draft/검토 필요로 생성하고 승인 전 PPTX를 차단하며, 승인 후 브라우저에서 직접 PPTX 다운로드
 
 - PanelProject 1.0/1.1 → 1.2 마이그레이션과 원본 스냅샷
 - `Ctrl+T` 자유 변형: mm 수치, 비율 잠금, 회전, X/Y 기울기, 반전, 3×3 기준점, Enter 단일 이력, Esc 원상 복원
@@ -34,6 +41,12 @@ Studio 1.2.3 코드와 production 웹 빌드가 준비되었다. 실행 중인 8
 - Photoshop 대비 기능 감사표와 사용자 자산을 제외하는 GitHub 배포용 Windows CI
 
 ## 변경 파일
+
+- `web/src/htmlImport.ts`, `web/src/App.tsx`, `web/src/styles.css` — HTML 안전 분해, 요소/라벨 승인, 원본 연결과 가져오기 UI
+- `web/src/Studio11Panels.tsx`, `web/src/smartApi.ts`, `web/src/types.ts` — 웹 AI 프롬프트, provider 설정, draft/승인/PPTX 흐름과 1.3 계약 확장
+- `studio_server/ai_storyboard.py`, `studio_server/app.py` — OpenAI 호환 호출, redirect 차단, 근거 제한, AI JSON 및 source 검증 API
+- `schemas/panel-project-v1.2.schema.json`, `schemas/studio-presentation-spec.schema.json` — HTML source와 AI generation metadata 계약
+- `examples/html-panel-demo.html`, `tests/test_ai_storyboard.py`, `tests/mock_openai_compatible.py` — 공개 HTML 데모, 근거/ID 검증, 브라우저 E2E용 결정론 endpoint
 
 - `web/src/types.ts`, `web/src/transform.ts`, `web/src/alignment.ts` — 1.2 계약, affine 계산, 정렬 규칙
 - `web/src/store.ts`, `web/src/CanvasStudio.tsx` — 변형 트랜잭션, crop/mask 편집, 스마트 스냅
@@ -62,7 +75,14 @@ Studio 1.2.3 코드와 production 웹 빌드가 준비되었다. 실행 중인 8
 
 ## 검증
 
-- Python `.venv` 회귀 테스트: 25개 통과
+- 실제 브라우저에서 공개 HTML 데모를 1800×900mm, 8개 독립 요소(텍스트 7·이미지 1), 승인 콘텐츠 블록 4개로 연결
+- HTML 승인 직후 레이아웃 3안 생성, 원본 selector/source ID 보존과 인라인 SVG→PNG PPTX 호환 변환 확인
+- 로컬 OpenAI 호환 endpoint를 통한 15분·16장 AI draft 생성, 승인 근거 전용 정책·16장 검토 플래그·정확한 900초 합계 확인
+- 웹 승인 전 PPTX 버튼 잠금, 웹 승인 후 `output/playwright/html-ai-deck.pptx` 직접 다운로드 성공
+- 다운로드 PPTX: 16장, 발표자 노트 16개, `원본 블록` 16개, `원본 요소` 16개, `[Sources]` 16개 확인
+- `slides_test.py`: 캔버스 overflow 0; 16장 전부 PNG 렌더 및 4×4 montage 육안 검토에서 잘림·겹침·깨진 한글·이미지 왜곡 0
+
+- Python `.venv` 회귀 테스트: 27개 통과
 - 프런트엔드 Vitest: 7개 파일 19개 테스트 통과
 - TypeScript strict와 Vite production build 통과
 - Windows 글꼴 706 face 검색, 한글 지원 74 face, KoPub 6개 별칭 확인
@@ -104,13 +124,14 @@ Studio 1.2.3 코드와 production 웹 빌드가 준비되었다. 실행 중인 8
 - 3보드·200요소·다수 50MP 자산의 30fps 목표는 구조적으로 썸네일 경로를 사용하지만 모든 사용자 조합의 장시간 성능 시험은 남아 있다.
 - 한 장으로 평탄화된 완성 패널 PDF/PNG는 원래 이미지·도면 레이어를 복원할 수 없다. 현재는 여백/밀도와 PDF 원문 객체를 근거로 후보를 만들고 낮은 확신도 및 전체 페이지 영역을 검토 대상으로 남긴다.
 - 추출 가능한 텍스트가 없는 평탄 PDF는 전체 페이지 객체로 가져오며 OCR 문장을 자동 생성하거나 수정하지 않는다.
+- 생성형 AI의 문장 품질과 사실성은 사용자가 선택한 모델에 따라 달라진다. Studio는 승인 근거 밖 source ID를 거부하고 모든 AI 문장을 검토 필요로 유지하지만, 최종 승인 책임은 사용자에게 있다.
+- 브라우저 HTML 가져오기는 임의 웹 페이지를 크롤링하지 않는다. 로컬 HTML과 함께 선택하지 않은 외부 이미지·스타일은 보안상 차단되고 검토 항목으로 남는다.
 
 ## 다음 행동
 
-1. `START_STUDIO.cmd`로 열고 `I`에서 도면·렌더·다이어그램 PDF/PNG를 여러 개 선택한다.
-2. bbox와 낮은 확신도 라벨을 확인한 뒤 필요한 객체만 승인하고 3안을 비교한다.
-3. 추천안의 가독성 경고를 수정하고 `C`, `M`, `Ctrl+T`, 정렬/Tidy Grid로 마감한다.
-4. Preflight에서 래스터화·글꼴·유효 DPI 경고를 확인한 뒤 PDF/PNG를 출력한다.
-5. **지능형 → 발표**에서 12개 설계 데이터 영역의 근거 커버리지를 확인하고, 핵심 문장을 설계자가 작성한 뒤 시간 합계를 맞춰 승인한다.
-6. 승인 후 PPTX를 출력하고 발표자 노트의 source block/element ID로 패널 원본을 역추적한다.
-7. 후속 우선순위는 다중 근거 이미지 선택 UI, 슬라이드 레이아웃 직접 교체, 리허설 타이머, 클리핑 마스크와 한글 벡터 윤곽선이다.
+1. `START_STUDIO.cmd`로 열고 왼쪽 **HTML**에서 패널 HTML과 연결 이미지를 함께 선택한다.
+2. 요소·라벨과 누락 자산을 확인한 뒤 콘텐츠 블록을 명시적으로 승인하고 3안을 비교한다.
+3. **지능형 → 발표**에서 로컬 또는 동의한 외부 OpenAI 호환 모델, 프롬프트, 발표 시간·장수를 지정한다.
+4. AI 초안의 문장·source block/element ID·시간 합계를 검토하고 웹에서 승인한다.
+5. **웹에서 PPTX 생성**으로 다운로드한 뒤 발표자 노트의 source ID로 HTML 패널 원본을 역추적한다.
+6. 후속 우선순위는 HTML CSS 폰트 파일 동반 가져오기, 슬라이드 레이아웃 직접 교체, 리허설 타이머와 AI 응답 스트리밍이다.

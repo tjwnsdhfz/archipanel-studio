@@ -14,10 +14,23 @@
     "elements": { "type": "array", "items": { "$ref": "#/$defs/element" } },
     "assets": { "type": "array" }, "fonts": { "type": "array" }, "contentBlocks": { "type": "array" },
     "typographyStyles": { "type": "array" }, "layoutProposals": { "type": "array" }, "presentationSpecs": { "type": "array" },
+    "htmlSources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "assetId", "name", "sha256", "importedAt", "widthMm", "heightMm", "elementIds", "reviewFlags"],
+        "properties": {
+          "id": { "type": "string" }, "assetId": { "type": "string" }, "name": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "importedAt": { "type": "string", "format": "date-time" },
+          "widthMm": { "type": "number", "exclusiveMinimum": 0 }, "heightMm": { "type": "number", "exclusiveMinimum": 0 },
+          "elementIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }, "reviewFlags": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
     "createdAt": { "type": "string", "format": "date-time" }, "updatedAt": { "type": "string", "format": "date-time" }
   },
   "$defs": {
     "transform": { "type": "object", "required": ["originX", "originY", "skewXDeg", "skewYDeg", "flipX", "flipY", "lockAspect"], "properties": { "originX": { "enum": [0, 0.5, 1] }, "originY": { "enum": [0, 0.5, 1] }, "skewXDeg": { "type": "number", "minimum": -60, "maximum": 60 }, "skewYDeg": { "type": "number", "minimum": -60, "maximum": 60 }, "flipX": { "type": "boolean" }, "flipY": { "type": "boolean" }, "lockAspect": { "type": "boolean" } } },
-    "element": { "type": "object", "required": ["id", "boardId", "type", "xMm", "yMm", "widthMm", "heightMm", "rotationDeg", "transform"], "properties": { "id": { "type": "string" }, "boardId": { "type": "string" }, "type": { "enum": ["text", "image", "pdf", "shape", "group"] }, "xMm": { "type": "number" }, "yMm": { "type": "number" }, "widthMm": { "type": "number", "minimum": 0 }, "heightMm": { "type": "number", "minimum": 0 }, "rotationDeg": { "type": "number" }, "blendMode": { "enum": ["normal", "multiply", "screen", "overlay", "darken", "lighten"] }, "transform": { "$ref": "#/$defs/transform" }, "mask": { "type": "object" }, "adjustments": { "type": "object" } } }
+    "element": { "type": "object", "required": ["id", "boardId", "type", "xMm", "yMm", "widthMm", "heightMm", "rotationDeg", "transform"], "properties": { "id": { "type": "string" }, "boardId": { "type": "string" }, "type": { "enum": ["text", "image", "pdf", "shape", "group"] }, "xMm": { "type": "number" }, "yMm": { "type": "number" }, "widthMm": { "type": "number", "minimum": 0 }, "heightMm": { "type": "number", "minimum": 0 }, "rotationDeg": { "type": "number" }, "blendMode": { "enum": ["normal", "multiply", "screen", "overlay", "darken", "lighten"] }, "sourceHtml": { "type": "object", "required": ["sourceId", "selector", "nodeId"], "properties": { "sourceId": { "type": "string" }, "selector": { "type": "string" }, "nodeId": { "type": "string" } } }, "transform": { "$ref": "#/$defs/transform" }, "mask": { "type": "object" }, "adjustments": { "type": "object" } } }
   }
 }

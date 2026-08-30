@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlignCenter, AlignLeft, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Archive, BoxSelect, ChevronDown, ChevronLeft, ChevronRight,
-  Circle, Download, Eye, EyeOff, FileImage, FilePlus2, Hand, ImagePlus, Layers3,
+  Circle, Download, Eye, EyeOff, FileCode2, FileImage, FilePlus2, Hand, ImagePlus, Layers3,
   LayoutPanelTop, Lock, LockOpen, Minus, MousePointer2, Plus, Redo2, Ruler,
   Save, ScanSearch, Settings2, ShieldCheck, Square, TextCursorInput, Trash2, Undo2,
   Crop, Group, Ungroup, Upload, ZoomIn, ZoomOut, FlipHorizontal2, FlipVertical2, Grid3X3, RefreshCw, Copy, ClipboardPaste,
@@ -15,6 +15,7 @@ import { useStudio } from "./store";
 import type { AssetRef, ContentLabel, PanelElement, Tool } from "./types";
 import { BOARD_PRESETS, CONTENT_LABELS, DEFAULT_ADJUSTMENTS, DEFAULT_MASK, DEFAULT_TRANSFORM, makeBoard, newId, syncBoardPrintProfile } from "./types";
 import { applyTransformPatch } from "./transform";
+import { analyzeHtmlPanel, materializeHtmlPanel, type HtmlPanelAnalysis } from "./htmlImport";
 import { DocumentSettingsModal, IntelligencePanel, TypographyRoleControl } from "./Studio11Panels";
 import { recommendLayouts } from "./smartApi";
 
@@ -96,10 +97,12 @@ function Studio() {
   const [preflightOpen, setPreflightOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [importFiles, setImportFiles] = useState<File[]>([]);
+  const [htmlFiles, setHtmlFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState("");
   const [storage, setStorage] = useState({ persisted: false, usage: 0, quota: 0 });
   const assetInput = useRef<HTMLInputElement>(null);
   const backgroundInput = useRef<HTMLInputElement>(null);
+  const htmlInput = useRef<HTMLInputElement>(null);
   const fontInput = useRef<HTMLInputElement>(null);
   const issues = useMemo(() => runPreflight(project!), [project]);
   const errors = issues.filter((issue) => issue.severity === "error").length;
@@ -191,8 +194,10 @@ function Studio() {
         {TOOL_ITEMS.map((item) => <button key={item.id} className={tool === item.id ? "active" : ""} title={`${item.label} (${item.key})`} onClick={() => item.id === "image" ? assetInput.current?.click() : state.setTool(item.id)}><item.icon size={19} /><span>{item.key}</span></button>)}
         <span className="tool-divider" />
         <button title="배경 패널 불러오기" onClick={() => backgroundInput.current?.click()}><LayoutPanelTop size={19} /><span>BG</span></button>
+        <button title="HTML 패널과 연결 자산 가져오기" onClick={() => htmlInput.current?.click()}><FileCode2 size={19} /><span>HTML</span></button>
         <input ref={assetInput} hidden multiple type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={(e) => { setImportFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
         <input ref={backgroundInput} hidden type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={(e) => void importAsset(e.target.files?.[0], true)} />
+        <input ref={htmlInput} hidden multiple type="file" accept=".html,.htm,image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => { setHtmlFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
       </aside>
       <section className={`workspace tool-${tool}`}><CanvasStudio /></section>
       <aside className="inspector">
@@ -222,6 +227,7 @@ function Studio() {
       {exportOpen && <ExportModal errors={errors} onClose={() => setExportOpen(false)} setNotice={setNotice} />}
       {documentOpen && <DocumentSettingsModal onClose={() => setDocumentOpen(false)} />}
       {importFiles.length > 0 && <ImportAssistant files={importFiles} onClose={() => setImportFiles([])} onDone={(message) => { setImportFiles([]); setTab("flow"); setNotice(message); }} />}
+      {htmlFiles.length > 0 && <HtmlImportAssistant files={htmlFiles} onClose={() => setHtmlFiles([])} onDone={(message) => { setHtmlFiles([]); setTab("flow"); setNotice(message); }} />}
     </main>
   );
 }
@@ -275,6 +281,29 @@ function ImportAssistant({ files, onClose, onDone }: { files: File[]; onClose: (
   };
   const total = analyses.reduce((sum, item) => sum + item.analysis.candidateCount, 0); const chosen = Object.values(selected).filter(Boolean).length;
   return <div className="modal-backdrop"><div className="modal import-assistant"><header><div><span className="modal-index">IMPORT / OBJECT LINK</span><h2>PDF·이미지 객체 연결</h2></div><button onClick={onClose}>닫기</button></header>{busy && !analyses.length ? <div className="import-loading"><RefreshCw size={22}/><b>페이지와 여백 구조 분석 중</b><span>원본은 브라우저 밖으로 전송하지 않습니다.</span></div> : <><div className="import-summary"><div><span>FILES</span><b>{analyses.length}</b></div><div><span>CANDIDATES</span><b>{total}</b></div><div><span>SELECTED</span><b>{chosen}</b></div></div><div className="import-pages">{analyses.map(({ file, analysis }) => <section key={`${file.name}-${file.size}`}><div className="import-file-head"><b>{file.name}</b><span>{analysis.pageCount} page · {analysis.candidateCount} objects</span></div>{analysis.pages.map((page) => <article className="import-page" key={page.pageIndex}><div className="import-map"><img src={page.thumbnailDataUrl} alt={`${file.name} ${page.pageIndex + 1}페이지`} />{page.candidates.map((candidate) => <button aria-label={candidate.title} title={`${candidate.title} · ${Math.round(candidate.confidence * 100)}%`} className={selected[candidate.id] ? "selected" : ""} key={candidate.id} style={{ left: `${candidate.bboxNormalized.x * 100}%`, top: `${candidate.bboxNormalized.y * 100}%`, width: `${candidate.bboxNormalized.w * 100}%`, height: `${candidate.bboxNormalized.h * 100}%` }} onClick={() => setSelected((current) => ({ ...current, [candidate.id]: !current[candidate.id] }))}><span>{candidate.label}</span></button>)}</div><div className="import-candidate-list"><b>PAGE {page.pageIndex + 1}</b>{page.candidates.map((candidate) => <label key={candidate.id} className={selected[candidate.id] ? "active" : ""}><input type="checkbox" checked={Boolean(selected[candidate.id])} onChange={() => setSelected((current) => ({ ...current, [candidate.id]: !current[candidate.id] }))}/><span><strong>{candidate.title}</strong><small>{candidate.label} · {Math.round(candidate.confidence * 100)}% · {candidate.status === "needs_review" ? "검토 필요" : "제안"}</small></span></label>)}</div></article>)}</section>)}</div><div className="import-options"><label><input type="checkbox" checked={matchBoard} onChange={(event) => setMatchBoard(event.target.checked)}/><span><b>빈 보드 방향 자동 맞춤</b><small>첫 페이지의 가로·세로 방향을 사용합니다.</small></span></label><label><input type="checkbox" checked={approve} onChange={(event) => setApprove(event.target.checked)}/><span><b>선택 객체의 라벨 승인</b><small>이 선택이 사용자 승인으로 기록됩니다.</small></span></label><label><input type="checkbox" checked={autoRecommend} disabled={!approve} onChange={(event) => setAutoRecommend(event.target.checked)}/><span><b>연결 후 3안 자동 추천</b><small>Narrative · Hero · Technical</small></span></label></div><div className="modal-actions"><button onClick={onClose}>취소</button><button className="primary" disabled={busy || !chosen} onClick={() => void apply()}>{busy ? "구성 중…" : `${chosen}개 객체 연결`}</button></div></>}{error && <p className="import-error">{error}</p>}</div></div>;
+}
+
+function HtmlImportAssistant({ files, onClose, onDone }: { files: File[]; onClose: () => void; onDone: (message: string) => void }) {
+  const state = useStudio(); const project = state.project!; const board = project.boards.find((item) => item.id === state.activeBoardId)!;
+  const [analysis, setAnalysis] = useState<HtmlPanelAnalysis>(); const [busy, setBusy] = useState(true); const [error, setError] = useState("");
+  const [approved, setApproved] = useState(false); const [autoRecommend, setAutoRecommend] = useState(true);
+  useEffect(() => { let alive = true; analyzeHtmlPanel(files).then((result) => alive && setAnalysis(result)).catch((reason) => alive && setError(reason instanceof Error ? reason.message : String(reason))).finally(() => alive && setBusy(false)); return () => { alive = false; }; }, [files]);
+  const apply = async () => {
+    if (!analysis) return; setBusy(true); setError("");
+    try {
+      const materialized = await materializeHtmlPanel(project, board.id, analysis, approved);
+      state.commit((draft) => {
+        draft.assets.push(...materialized.assets); draft.elements.push(...materialized.elements); draft.contentBlocks.push(...materialized.blocks); draft.htmlSources.push(materialized.htmlSource);
+        const target = draft.boards.find((item) => item.id === board.id)!; target.widthMm = analysis.widthMm; target.heightMm = analysis.heightMm; target.elementIds.push(...materialized.elements.map((item) => item.id)); syncBoardPrintProfile(target);
+      });
+      if (approved && autoRecommend && materialized.blocks.length) {
+        const current = useStudio.getState().project!; const proposals = await recommendLayouts(current, board.id, []);
+        state.commit((draft) => { draft.layoutProposals = draft.layoutProposals.filter((item) => item.boardId !== board.id); draft.layoutProposals.push(...proposals); });
+      }
+      onDone(`HTML에서 ${materialized.elements.length}개 편집 요소와 ${materialized.blocks.length}개 콘텐츠 블록을 연결했습니다.${approved && autoRecommend ? " 레이아웃 3안도 준비했습니다." : ""}`);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); setBusy(false); }
+  };
+  return <div className="modal-backdrop"><div className="modal html-import-assistant"><header><div><span className="modal-index">HTML / SAFE DOM</span><h2>HTML 패널 요소 가져오기</h2></div><button onClick={onClose}>닫기</button></header>{busy&&!analysis?<div className="import-loading"><RefreshCw size={22}/><b>HTML을 격리 렌더링하는 중</b><span>script·iframe·외부 스타일은 실행하지 않습니다.</span></div>:analysis&&<><div className="html-import-flow"><span>HTML SOURCE</span><i>→</i><span>{analysis.candidates.length} ELEMENTS</span><i>→</i><span>CONTENT BLOCKS</span><i>→</i><span>AI STORYBOARD</span></div><div className="html-import-summary"><div><small>판형</small><b>{analysis.widthMm} × {analysis.heightMm}mm</b></div><div><small>텍스트</small><b>{analysis.candidates.filter((item)=>item.kind==="text").length}</b></div><div><small>이미지</small><b>{analysis.candidates.filter((item)=>item.kind==="image"&&item.imageFile).length}</b></div><div><small>검토</small><b>{analysis.reviewFlags.length+analysis.candidates.filter((item)=>item.reviewFlags.length).length}</b></div></div><div className="html-element-map" style={{aspectRatio:`${analysis.widthMm}/${analysis.heightMm}`}}>{analysis.candidates.map((item)=><i key={item.id} className={item.kind} title={`${item.label} · ${item.title}`} style={{left:`${item.bboxMm.x/analysis.widthMm*100}%`,top:`${item.bboxMm.y/analysis.heightMm*100}%`,width:`${item.bboxMm.w/analysis.widthMm*100}%`,height:`${item.bboxMm.h/analysis.heightMm*100}%`}}><span>{item.label}</span></i>)}</div><div className="html-element-list">{analysis.candidates.map((item)=><div key={item.id}><b>{item.kind==="text"?"T":"IMG"}</b><span><strong>{item.title}</strong><small>{item.label} · {Math.round(item.confidence*100)}% · {item.selector}</small></span>{item.reviewFlags.length>0&&<em>검토</em>}</div>)}</div>{analysis.reviewFlags.length>0&&<div className="html-review">{analysis.reviewFlags.map((flag)=><span key={flag}>{flag}</span>)}</div>}<div className="import-options"><label><input type="checkbox" checked={approved} onChange={(event)=>setApproved(event.target.checked)}/><span><b>HTML 요소·라벨을 사용자 승인</b><small>승인한 블록만 생성형 AI와 PPTX 근거로 사용됩니다.</small></span></label><label><input type="checkbox" checked={autoRecommend} disabled={!approved} onChange={(event)=>setAutoRecommend(event.target.checked)}/><span><b>가져온 뒤 3안 추천</b><small>원본 내용은 바꾸지 않고 위치와 크기만 제안합니다.</small></span></label></div><div className="modal-actions"><button onClick={onClose}>취소</button><button className="primary" disabled={busy||!analysis.candidates.length} onClick={()=>void apply()}>{busy?"구성 중…":`${analysis.candidates.length}개 요소 가져오기`}</button></div></>}{error&&<p className="import-error">{error}</p>}</div></div>;
 }
 
 function TransformBar({ selected }: { selected: PanelElement[] }) {

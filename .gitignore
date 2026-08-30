@@ -10,6 +10,7 @@ assets/
 demo-assets/
 examples/*
 !examples/Studio_sample_project.json
+!examples/html-panel-demo.html
 web/node_modules/
 web/.vite/
 web/dist/

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="archipanel-width-mm" content="1800">
+  <meta name="archipanel-height-mm" content="900">
+  <title>ArchiPanel HTML Import Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eeeae1; font-family: "Malgun Gothic", sans-serif; }
+    main { width: 1600px; height: 800px; padding: 54px; display: grid; grid-template-columns: 1.1fr .9fr 1fr; grid-template-rows: 160px 1fr; gap: 28px; background: #f8f6f0; }
+    header { grid-column: 1 / 4; border-bottom: 3px solid #b85f38; }
+    h1 { margin: 0; font-size: 72px; letter-spacing: -4px; }
+    header p { max-width: 760px; font-size: 20px; color: #555b55; }
+    section { min-width: 0; border-top: 1px solid #8c918b; padding-top: 18px; }
+    h2 { margin: 0 0 18px; font-size: 30px; }
+    p { font-size: 17px; line-height: 1.55; }
+    svg { width: 100%; height: 360px; background: #e6e0d3; }
+  </style>
+</head>
+<body>
+  <main data-archipanel-board data-width-mm="1800" data-height-mm="900">
+    <header data-panel-block="identity" data-panel-label="title">
+      <h1 id="project-title">HTML PANEL / EDITABLE</h1>
+      <p id="project-summary">이 파일은 HTML 요소 분해와 근거 기반 발표 생성 흐름을 검증하는 공개 데모입니다.</p>
+    </header>
+    <section id="context" data-panel-block="context" data-panel-label="context">
+      <h2>CONTEXT</h2>
+      <p>제목과 본문은 각각 편집 가능한 텍스트 레이어로 변환됩니다.</p>
+    </section>
+    <section id="concept" data-panel-block="concept" data-panel-label="concept">
+      <h2>CONCEPT</h2>
+      <svg id="concept-diagram" viewBox="0 0 500 360" role="img" aria-label="연결 개념 다이어그램">
+        <rect x="40" y="55" width="150" height="105" fill="#b85f38"/>
+        <rect x="305" y="200" width="150" height="105" fill="#4e7180"/>
+        <path d="M190 108 C280 108 220 252 305 252" fill="none" stroke="#202421" stroke-width="8"/>
+      </svg>
+    </section>
+    <section id="program" data-panel-block="program" data-panel-label="program">
+      <h2>PROGRAM</h2>
+      <p>각 콘텐츠 블록은 HTML selector와 source ID를 보존하며 승인 후에만 AI 스토리보드 근거로 사용됩니다.</p>
+    </section>
+  </main>
+</body>
+</html>

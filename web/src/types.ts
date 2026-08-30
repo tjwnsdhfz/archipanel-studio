@@ -29,6 +29,7 @@ export type CommonElement = {
   id: UUID; boardId: UUID; name: string; xMm: number; yMm: number; widthMm: number; heightMm: number;
   rotationDeg: number; opacity: number; visible: boolean; locked: boolean;
   transform: TransformOptions; blendMode?: BlendMode;
+  sourceHtml?: { sourceId: UUID; selector: string; nodeId: string };
 };
 export type TransformOptions = {
   originX: 0 | 0.5 | 1; originY: 0 | 0.5 | 1; skewXDeg: number; skewYDeg: number;
@@ -123,13 +124,20 @@ export type DesignExplanationDataV1 = {
 export type StudioPresentationSpecV1 = {
   id: UUID; projectId: UUID; audience: string; durationMinutes: number; slideCount: number; slides: StudioSlideSpec[];
   designExplanationData: DesignExplanationDataV1;
+  aiGeneration?: { mode: "generative-ai"; model: string; endpointOrigin: string; userPrompt: string; generatedAt: string; evidencePolicy: "approved-blocks-only"; returnedSlideCount: number };
   approvedContentBlockIds: UUID[]; approvalStatus: "draft" | "approved"; createdAt: string; updatedAt: string;
+};
+
+export type HtmlSourceRef = {
+  id: UUID; assetId: UUID; name: string; sha256: string; importedAt: string; widthMm: number; heightMm: number;
+  elementIds: UUID[]; reviewFlags: string[];
 };
 
 export type PanelProjectV1 = {
   schemaVersion: "1.2"; id: UUID; name: string; defaultDpi: number; colorMode: "RGB"; boards: PanelBoard[];
   elements: PanelElement[]; assets: AssetRef[]; fonts: FontRef[]; contentBlocks: PanelContentBlock[];
   typographyStyles: TypographyStyle[]; layoutProposals: LayoutProposalV1[]; presentationSpecs: StudioPresentationSpecV1[];
+  htmlSources: HtmlSourceRef[];
   createdAt: string; updatedAt: string;
 };
 export type PreflightIssue = {
@@ -169,7 +177,7 @@ export function makeProject(name = "새 건축 패널"): PanelProjectV1 {
   const now = new Date().toISOString();
   return { schemaVersion: "1.2", id: newId(), name, defaultDpi: 300, colorMode: "RGB", boards: [makeBoard()],
     elements: [], assets: [], fonts: [], contentBlocks: [], typographyStyles: structuredClone(DEFAULT_TYPOGRAPHY_STYLES),
-    layoutProposals: [], presentationSpecs: [], createdAt: now, updatedAt: now };
+    layoutProposals: [], presentationSpecs: [], htmlSources: [], createdAt: now, updatedAt: now };
 }
 export function migrateProject(input: unknown): PanelProjectV1 {
   const source = structuredClone(input) as Record<string, any>;
@@ -177,7 +185,7 @@ export function migrateProject(input: unknown): PanelProjectV1 {
   const dpi = Number(source.defaultDpi) || 300;
   const project = source as unknown as PanelProjectV1;
   project.schemaVersion = "1.2"; project.defaultDpi = dpi; project.contentBlocks ??= [];
-  project.typographyStyles ??= structuredClone(DEFAULT_TYPOGRAPHY_STYLES); project.layoutProposals ??= []; project.presentationSpecs ??= [];
+  project.typographyStyles ??= structuredClone(DEFAULT_TYPOGRAPHY_STYLES); project.layoutProposals ??= []; project.presentationSpecs ??= []; project.htmlSources ??= [];
   project.boards = (project.boards ?? []).map((board) => ({ ...board, printProfile: board.printProfile ?? makePrintProfile(board.widthMm, board.heightMm, dpi) }));
   project.elements = (project.elements ?? []).map((element) => {
     const legacy = element as PanelElement & { flipX?: boolean; flipY?: boolean; transform?: TransformOptions };

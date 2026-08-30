@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import asyncio
 import hashlib
 import json
 import mimetypes
@@ -30,6 +31,7 @@ from studio_server.exporter import export_pdf, export_raster
 from studio_server.font_catalog import font_path, inspect_font, legacy_kopub_aliases, public_fonts, refresh_catalog
 from studio_server.import_analysis import analyze_asset
 from studio_server.demo import DEMO_SOURCE, build_demo_payload
+from studio_server.ai_storyboard import request_ai_storyboard
 from studio_server.intelligence import build_design_explanation_data, build_storyboard, recommend_layouts, suggest_content_blocks, validate_layout
 from studio_server.validation import validate_project
 
@@ -44,7 +46,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5174", "http
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "version": __version__, "capabilities": ["package", "validate", "pdf", "png", "jpg", "preview", "system-fonts", "font-inspection", "free-transform", "non-destructive-mask", "image-adjustments", "smart-alignment", "cross-board-clipboard", "content-labels", "layout-recommendation", "import-object-analysis", "multi-page-pdf-import", "design-explanation-data", "studio-storyboard", "reference-layouts", "decomposed-demo"]}
+    return {"ok": True, "version": __version__, "capabilities": ["package", "validate", "pdf", "png", "jpg", "preview", "system-fonts", "font-inspection", "free-transform", "non-destructive-mask", "image-adjustments", "smart-alignment", "cross-board-clipboard", "content-labels", "layout-recommendation", "import-object-analysis", "multi-page-pdf-import", "html-panel-import", "design-explanation-data", "studio-storyboard", "generative-ai-storyboard", "reference-layouts", "decomposed-demo"]}
 
 
 @app.get("/api/demo/decomposed-panel")
@@ -116,6 +118,23 @@ async def presentation_design_data(request: Request) -> dict[str, Any]:
         return {"designExplanationData": build_design_explanation_data(payload["project"], str(payload.get("audience", "건축 설계 심사위원")))}
     except (KeyError, ValueError) as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/api/presentation/ai-storyboard")
+async def presentation_ai_storyboard(request: Request) -> dict[str, Any]:
+    payload = await request.json()
+    if not isinstance(payload.get("project"), dict) or not isinstance(payload.get("config"), dict):
+        raise HTTPException(400, "project와 AI config가 필요합니다.")
+    try:
+        spec = await asyncio.to_thread(
+            request_ai_storyboard,
+            payload["project"], payload["config"], str(payload.get("prompt", "")),
+            int(payload.get("durationMinutes", 15)), int(payload.get("slideCount", 16)),
+            str(payload.get("audience", "건축 설계 심사위원")),
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"spec": spec}
 
 
 @app.post("/api/references/inspect")

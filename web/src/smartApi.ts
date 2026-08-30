@@ -24,3 +24,8 @@ export async function validateProposal(project: PanelProjectV1, proposal: Layout
 export async function makeStoryboard(project: PanelProjectV1, durationMinutes: number, slideCount: number, audience: string) {
   return (await post<{ spec: StudioPresentationSpecV1 }>("/api/presentation/storyboard", { project, durationMinutes, slideCount, audience })).spec;
 }
+
+export type AiStoryboardConfig = { endpoint: string; model: string; apiKey: string; allowCloud: boolean };
+export async function makeAiStoryboard(project: PanelProjectV1, durationMinutes: number, slideCount: number, audience: string, prompt: string, config: AiStoryboardConfig) {
+  return (await post<{ spec: StudioPresentationSpecV1 }>("/api/presentation/ai-storyboard", { project, durationMinutes, slideCount, audience, prompt, config })).spec;
+}

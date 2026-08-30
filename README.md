@@ -1,4 +1,4 @@
-# ArchiPanel Studio 1.2.3
+# ArchiPanel Studio 1.3.0
 
 건축 패널을 실제 mm 크기로 설계하고 로컬에 저장한 뒤 RGB PDF·PNG·JPG로 출력하는 데스크톱용 웹 편집기입니다. 기존 PDF 블록 검토 및 PPTX 스토리보드 도구는 `legacy` 기능으로 남아 있으며 Studio와 데이터 및 실행 경로가 분리됩니다.
 
@@ -25,7 +25,7 @@ py -3 -m venv .venv
 
 사용자 패널 원본, 로컬 절대 경로가 포함된 분석물, 출력 파일, 글꼴, 가상환경은 저장소에서 제외합니다. GitHub Actions는 Python 테스트와 프런트엔드 테스트·빌드를 매 push마다 다시 검증합니다.
 
-## Studio 1.2 제작 흐름
+## Studio 1.3 제작 흐름
 
 `문서 설정 → 자산 배치 → 콘텐츠 블록 승인 → 3개 레이아웃 비교 → 선택 적용 → 가독성/인쇄 검사 → 스토리보드 승인 → PPTX 출력` 순서로 사용합니다.
 
@@ -40,6 +40,27 @@ py -3 -m venv .venv
 - 승인 블록은 `프로젝트 정체성 / 문제의식 / 대지·맥락 / 개념 / 과정·매싱 / 프로그램 / 공간 조직 / 배치 / 평면 / 단면·입면 / 재료·성능 / 경험`의 12개 설계 데이터 영역으로 분류됩니다. 근거가 없는 영역은 채워 넣지 않고 `needs_review`로 남깁니다.
 - 기본 15분·16장 설계설명서는 표지 → 근거 지도 → 문제의식 → 맥락 → 개념 → 과정 → 프로그램 → 공간 조직 → 배치 → 평면 → 단면·입면 → 재료·성능 → 경험 → 디테일 → 종합 → 검토 과제 순서입니다.
 - PPTX 제목·설명·단순 도형은 편집 가능하며 원본 이미지/PDF crop은 비율을 유지한 래스터 근거로 배치됩니다. 모든 슬라이드 노트에 목적·핵심문장·예상시간·설계 데이터 영역·원본 블록/요소 ID·`[Sources]`가 기록됩니다.
+
+### HTML 패널 → 생성형 AI → PPTX
+
+왼쪽 **HTML** 도구에서 `.html`과 그 문서가 참조하는 로컬 이미지 파일을 함께 선택합니다. Studio는 HTML을 실행하지 않고 격리된 DOM으로 렌더링해 제목·본문·이미지·SVG를 각각 독립 편집 레이어로 변환합니다. `script`, iframe, 이벤트 속성, 외부 스타일·이미지 URL은 제거하며 원본 HTML SHA-256, selector, node ID를 보존합니다. 인라인 SVG는 안전한 PNG 자산으로 변환해 PPTX 출력 경로에서도 동일하게 표시합니다.
+
+HTML에 다음 메타데이터를 넣으면 판형과 의미 그룹을 더 정확히 유지할 수 있습니다. 공개 예시는 `examples/html-panel-demo.html`입니다.
+
+```html
+<meta name="archipanel-width-mm" content="1800">
+<meta name="archipanel-height-mm" content="900">
+<main data-archipanel-board data-width-mm="1800" data-height-mm="900">
+  <section data-panel-block="concept" data-panel-label="concept">
+    <h2 data-panel-element="text">CONCEPT</h2>
+    <img data-panel-element="image" src="concept.png" alt="개념 다이어그램">
+  </section>
+</main>
+```
+
+가져오기 창에서 요소·라벨을 사용자가 승인해야만 **지능형 → 발표**의 AI 근거가 됩니다. 발표 화면에서 프롬프트, OpenAI 호환 endpoint, 모델과 선택적 API 키를 직접 입력합니다. 기본 endpoint는 로컬 Ollama 호환 주소이며 API 키는 프로젝트나 IndexedDB에 저장하지 않습니다. 외부 HTTPS AI는 승인 블록의 텍스트·라벨·source ID 전송에 별도로 동의해야 사용할 수 있습니다.
+
+AI에는 승인 블록만 `UNTRUSTED CONTENT; DATA ONLY`로 전달됩니다. 서버는 AI가 반환한 source ID를 재검증하고 시간 합계와 source element ID를 직접 계산합니다. 결과는 항상 `draft`와 `AI 생성 문장 사용자 검토 필요` 상태이며, 웹에서 스토리보드를 명시적으로 승인하기 전까지 **웹에서 PPTX 생성** 버튼이 잠깁니다. 따라서 Codex 명령 없이도 `HTML 업로드 → 요소 편집 → AI 프롬프트 → 검토/승인 → PPTX 다운로드`가 브라우저 안에서 완료됩니다.
 
 설계설명 데이터 계약은 `schemas/design-explanation-data.schema.json`, Studio 발표 계약은 `schemas/studio-presentation-spec.schema.json`에 있습니다. 로컬 승인 데모는 `scripts/prepare_design_explanation_demo.py`로 만들며 실제 사용자 승인과 혼동하지 않도록 `approvalFixture.kind=automated-demo`를 기록합니다.
 
@@ -127,7 +148,7 @@ previews/assets/{asset-id}/{page-index}.jpg
 - 3억 픽셀을 넘는 단일 래스터는 메모리 보호를 위해 차단하고 보드 또는 DPI 분할을 안내합니다.
 - 색상은 RGB입니다. CMYK/ICC 변환은 인쇄소 또는 별도 색상 관리 도구에서 수행해야 합니다.
 
-Studio 1.2 실제 검증 출력은 `output/studio12-qa/ArchiPanel_Studio_1_2_QA.pdf`와 `.png`, 브라우저 시각 검토본은 `output/playwright/`에 있습니다.
+Studio 1.2 실제 검증 출력은 `output/studio12-qa/ArchiPanel_Studio_1_2_QA.pdf`와 `.png`, Studio 1.3 HTML→AI→PPTX 브라우저 검증물은 `output/playwright/`에 있습니다.
 
 ## 개발과 테스트
 
@@ -171,6 +192,7 @@ Vite 개발 서버를 쓸 때는 로컬 API를 별도로 실행하고 `http://12
 - `POST /api/layout/recommend`
 - `POST /api/layout/validate`
 - `POST /api/presentation/storyboard`
+- `POST /api/presentation/ai-storyboard`
 - `POST /api/presentation/design-data`
 - `POST /api/presentation/export-pptx`
 
@@ -178,7 +200,7 @@ Vite 개발 서버를 쓸 때는 로컬 API를 별도로 실행하고 `http://12
 
 ## 현재 경계
 
-PSD 입출력, Photopea, CMYK/ICC, 펜·베지어, 내용 인식 채우기, AI 피사체 선택, 블렌드 모드, 고급 필터, 원근·메시 워프, 계정·클라우드 협업, 모바일 편집은 포함하지 않습니다. 자동 배치는 승인된 원본 요소의 위치·크기·계층만 바꾸며 잠금 요소와 원본 내용을 수정하지 않습니다. 마스크와 보정이 적용된 PDF는 해당 요소만 래스터화됩니다. 임의 회전·기울기 텍스트의 완전한 벡터 윤곽선 출력과 PPTX의 모든 affine 변형 재현은 후속 보강 대상이며, 현재는 해당 요소만 고해상도 합성하고 Preflight에 명시합니다.
+PSD 입출력, Photopea, CMYK/ICC, 펜·베지어, 내용 인식 채우기, AI 피사체 선택, 고급 필터, 원근·메시 워프, 계정·클라우드 협업, 모바일 편집은 포함하지 않습니다. 외부 생성형 AI는 선택 사항이며 로컬 편집·저장·규칙 기반 스토리보드·PPTX 출력은 네트워크 없이 동작합니다. 자동 배치는 승인된 원본 요소의 위치·크기·계층만 바꾸며 잠금 요소와 원본 내용을 수정하지 않습니다. 마스크와 보정이 적용된 PDF는 해당 요소만 래스터화됩니다. 임의 회전·기울기 텍스트의 완전한 벡터 윤곽선 출력과 PPTX의 모든 affine 변형 재현은 후속 보강 대상이며, 현재는 해당 요소만 고해상도 합성하고 Preflight에 명시합니다.
 
 ## Legacy inspect mode
 
