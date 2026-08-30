@@ -191,6 +191,7 @@ Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서
 - FastAPI를 `0.0.0.0:8766`으로 다시 실행했다.
 - 이 PC, 같은 LAN, Tailscale 전용 HTTPS의 루트 페이지와 `/api/health`가 모두 HTTP 200이다.
 - Tailscale의 기존 443/8765 서비스를 보존하고 Studio만 HTTPS 8443으로 연결했다.
+- 비밀번호 보호 공개 Funnel을 HTTPS 10000에 별도로 연결했다. 이 임시 공개 주소는 이 PC가 켜져 있고 백그라운드 Studio가 실행 중일 때만 유지된다.
 - Docker Compose와 Render Blueprint에서 공개 모드는 Basic Auth, 서버 시스템 글꼴 차단, 환경별 업로드 한도, 영구 데이터 디렉터리를 적용한다.
 - 로컬/Tailscale 모드는 검증된 PPTX 런타임을 감지하며 `/api/health`에 `verified-pptx-export`를 표시한다.
 - Docker/Render에는 비공개 Artifact Tool을 포함하지 않으며 PPTX 요청은 명시적 503을 반환한다. PDF/PNG/JPG와 설계설명서 PDF는 계속 제공한다.
@@ -210,6 +211,7 @@ Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서
 - 공개 모드 실제 서버: `/api/health` 200, 미인증 `/` 401, 인증 `/` 200, 인증 후 시스템 글꼴 API 403
 - 로컬 실제 서버: `127.0.0.1`, LAN IPv4, Tailscale HTTPS에서 앱 제목 `ArchiPanel Studio`와 HTTP 200 확인
 - 로컬 health: `deploymentMode=local`, `authenticationRequired=false`, `verified-pptx-export=true`
+- 공개 Funnel 실제 검증: 미인증 `/` 401, 인증 `/` 200, 시스템 글꼴 API 403, `deploymentMode=public`, `authenticationRequired=true`, `verified-pptx-export=true`
 - GitHub Actions에 Linux Docker BuildKit 컨테이너 빌드 검증 작업 추가
 - GitHub Actions `33343032885` 통과: Windows Python·Web 전체 검증과 Linux production Docker 이미지 빌드 모두 성공
 
