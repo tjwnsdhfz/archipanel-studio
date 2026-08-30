@@ -211,6 +211,7 @@ Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서
 - 로컬 실제 서버: `127.0.0.1`, LAN IPv4, Tailscale HTTPS에서 앱 제목 `ArchiPanel Studio`와 HTTP 200 확인
 - 로컬 health: `deploymentMode=local`, `authenticationRequired=false`, `verified-pptx-export=true`
 - GitHub Actions에 Linux Docker BuildKit 컨테이너 빌드 검증 작업 추가
+- GitHub Actions `33343032885` 통과: Windows Python·Web 전체 검증과 Linux production Docker 이미지 빌드 모두 성공
 
 ## 블로커
 
