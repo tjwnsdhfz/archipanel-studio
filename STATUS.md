@@ -70,6 +70,8 @@ Studio 1.2.1이 `http://127.0.0.1:8766/`에서 로컬 실행된다.
 - Multiply 합성 색상과 보드 단위 래스터화 회귀 통과, 비혼합 보드는 기존 벡터 출력 경로 유지
 - 실제 브라우저 Preflight에서 `blend-board-rasterized` 안내 표시, 콘솔 오류·경고 0, 캡처 `output/playwright/studio121-blend-preflight.png`
 - 로컬 `/api/health` 버전 1.2.1 응답과 분해 데모 14개 영역·3개 추천안 재생성 확인
+- 공개 GitHub 저장소 `https://github.com/tjwnsdhfz/archipanel-studio` 생성, 사용자 패널·개인 경로·출력물 제외 확인
+- GitHub Actions Windows 검증 `33296717377` 통과: 공개 환경 Python 12개 통과·로컬 전용 11개 건너뜀, 웹 17개 통과, production build 통과
 
 ## 블로커
 
