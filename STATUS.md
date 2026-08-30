@@ -28,6 +28,7 @@ PSD/PSB 원본과 레이어를 비파괴 연결하고, 승인된 패널 근거�
 - 승인 fixture로 24쪽 PPTX와 A3 RGB PDF를 생성했다. PPTX 24장 렌더·layout, PDF 24쪽 렌더·montage가 모두 존재한다.
 - PPTX overflow 검사 통과. 발표자 노트 24개, `[Sources]` 24개, 원본 블록 기록 24개를 확인했다. 보이는 슬라이드 텍스트에는 UUID와 검토 scaffolding이 없다.
 - PDF 첫 페이지는 419.99999×297.00000mm로 A3 오차 0.01mm 미만이다.
+- GitHub Actions Windows 검증 `33321435100` 통과: Python 33개, 웹 19개, production build가 `main` 커밋 `89ce587`에서 성공했다.
 
 ### 블로커
 
