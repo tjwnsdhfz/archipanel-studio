@@ -6,7 +6,7 @@ import { useStudio } from "./store";
 describe("Studio 1.2 document and readability", () => {
   it("migrates 1.0 without changing mm geometry", () => {
     const project = makeProject(); const old = { ...project, schemaVersion: "1.0", contentBlocks: undefined, typographyStyles: undefined, layoutProposals: undefined, presentationSpecs: undefined, boards: project.boards.map(({ printProfile: _ignored, ...board }) => board) };
-    const migrated = migrateProject(old); expect(migrated.schemaVersion).toBe("1.2"); expect(migrated.boards[0].widthMm).toBe(841); expect(migrated.boards[0].printProfile.targetDpi).toBe(300);
+    const migrated = migrateProject(old); expect(migrated.schemaVersion).toBe("1.3"); expect(migrated.boards[0].widthMm).toBe(841); expect(migrated.boards[0].printProfile.targetDpi).toBe(300);
   });
   it("changes DPI without changing physical size", () => {
     useStudio.getState().loadProject(makeProject()); const board = useStudio.getState().project!.boards[0]; useStudio.getState().resizeBoard(board.id, board.widthMm, board.heightMm, "keep", 150);

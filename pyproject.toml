@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "archipanel-agent"
-version = "0.3.2"
+version = "0.4.0"
 description = "Local-first architecture panel editor with legacy PDF to storyboard tools"
 requires-python = ">=3.11"
 dependencies = [
@@ -18,6 +18,7 @@ dependencies = [
   "fonttools>=4.56",
   "uharfbuzz>=0.45",
   "brotli>=1.1",
+  "psd-tools>=1.10,<2",
 ]
 
 [project.optional-dependencies]

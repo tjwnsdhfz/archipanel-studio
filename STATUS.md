@@ -1,6 +1,46 @@
-# ArchiPanel Studio 1.3.0 상태
+# ArchiPanel Studio 1.4.0 상태
 
-최종 갱신: 2026-08-30 (Asia/Seoul)
+## 2026-08-31 · Studio 1.4 구현 결과
+
+### 목적
+
+PSD/PSB 원본과 레이어를 비파괴 연결하고, 승인된 패널 근거를 웹에서 편집 가능한 A3 설계설명서로 구성해 PPTX와 RGB PDF를 함께 출력한다.
+
+### 현재 상태
+
+- 1.4.0 로컬 서버가 `127.0.0.1:8766`에서 실행 중이다.
+- PSD/PSB 32MB 청크 업로드, 2GB 제한, SHA-256 검증, 불변 원본 저장, 레이어 트리·합성 미리보기·선택 materialize·재연결 compare/apply API가 구현됐다.
+- 웹 도구막대의 `PSD`에서 원본을 검사하고, 잠긴 합성 대조 배경과 선택 레이어를 독립 `psd_layer` 요소로 가져온다.
+- `지능형 → 발표 → A3 설계설명서`에서 Detailed 18–30쪽 또는 Live 14–18장 초안을 만들고 순서·복제·삭제·템플릿·제목·주장·설명을 편집한다.
+- 승인된 spec만 동일 scene graph의 PPTX/PDF 출력기로 전달된다. 기존 Legacy 16장 exporter는 보존됐다.
+
+### 변경 파일
+
+- PSD: `studio_server/asset_store.py`, `psd_support.py`, `psd_api.py`, `web/src/PsdImportModal.tsx`
+- 설명서: `studio_server/design_statement.py`, `design_statement_api.py`, `design_statement_pdf.py`, `templates/build_design_statement.mjs`, `web/src/DesignStatementPanel.tsx`
+- 계약·통합: `web/src/types.ts`, `db.ts`, `App.tsx`, `CanvasStudio.tsx`, `Studio11Panels.tsx`, `schemas/psd-source-v1.schema.json`, `schemas/design-statement-spec-v1.schema.json`
+- 검증: `tests/test_studio14.py`, `scripts/build_design_statement_fixture.py`
+
+### 검증
+
+- Python 33개 테스트 통과, 웹 19개 테스트 통과, Vite production build 통과.
+- 실제 브라우저에서 PSD 버튼, A3/Legacy 분기, 24쪽 생성, 페이지별 편집 컨트롤, 승인 후 PPTX/PDF 버튼 활성화를 확인했다.
+- 승인 fixture로 24쪽 PPTX와 A3 RGB PDF를 생성했다. PPTX 24장 렌더·layout, PDF 24쪽 렌더·montage가 모두 존재한다.
+- PPTX overflow 검사 통과. 발표자 노트 24개, `[Sources]` 24개, 원본 블록 기록 24개를 확인했다. 보이는 슬라이드 텍스트에는 UUID와 검토 scaffolding이 없다.
+- PDF 첫 페이지는 419.99999×297.00000mm로 A3 오차 0.01mm 미만이다.
+
+### 블로커
+
+- 실제 사용자 PSD/PSB를 Adobe Photoshop과 합성본·레이어 수·텍스트·마스크별로 대조하지 않았으므로 PSD 시각 호환성은 `manual_verification_required`다.
+- PSD 왕복 저장, CMYK/ICC와 Photoshop 전용 효과 편집은 계획대로 범위 밖이다.
+
+### 다음 행동
+
+사용자 대표 PSD/PSB 한 개를 `PSD` 도구로 가져와 합성 미리보기와 Photoshop 화면을 대조하고, 모호/누락 레이어의 재연결 승인 흐름을 실물 검증한다.
+
+최종 갱신: 2026-08-31 (Asia/Seoul)
+
+## Studio 1.3 회귀 기준선
 
 ## 목적
 
@@ -8,7 +48,7 @@
 
 ## 현재 상태
 
-Studio 1.3.0 코드와 production 웹 빌드가 준비되었다. 실행 중인 8766 서버는 1.3.0을 제공한다.
+아래 항목은 Studio 1.4에서도 보존한 1.3.0 회귀 기준선이다. 현재 실행 서버는 1.4.0이다.
 
 - HTML과 연결 로컬 이미지를 한 번에 선택하는 안전한 DOM 가져오기, mm 판형 메타데이터, 독립 텍스트/이미지 레이어와 원본 selector/node ID 연결
 - script·iframe·이벤트 속성·외부 CSS/이미지 실행 차단, 원본 HTML SHA-256 보존, SVG의 안전한 PNG 변환

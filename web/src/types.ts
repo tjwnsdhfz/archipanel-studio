@@ -58,12 +58,18 @@ export type PdfElement = CommonElement & {
   type: "pdf"; assetId: UUID; pageIndex: number; clipNormalized: { x: number; y: number; w: number; h: number };
   fit: "contain" | "cover"; mask: LayerMaskV1; adjustments: ImageAdjustmentsV1;
 };
+export type PsdLayerElement = CommonElement & {
+  type: "psd_layer"; sourceId: UUID; layerId: string; previewAssetId: UUID;
+  renderPolicy: "source-layer" | "composite-unit"; cropNormalized: { x: number; y: number; w: number; h: number };
+  fit: "contain" | "cover"; mask: LayerMaskV1; adjustments: ImageAdjustmentsV1; provenance: { sourceSha256: string; layerPath: string; fingerprint: string };
+  reviewFlags: string[];
+};
 export type ShapeElement = CommonElement & {
   type: "shape"; shape: "rect" | "ellipse" | "line" | "polygon"; fill: string; stroke: string;
   strokeWidthMm: number; dash: number[];
 };
 export type GroupElement = CommonElement & { type: "group"; childIds: UUID[] };
-export type PanelElement = TextElement | ImageElement | PdfElement | ShapeElement | GroupElement;
+export type PanelElement = TextElement | ImageElement | PdfElement | PsdLayerElement | ShapeElement | GroupElement;
 
 export type AssetRef = {
   id: UUID; name: string; mime: string; sizeBytes: number; widthPx?: number; heightPx?: number; pageCount?: number;
@@ -132,12 +138,35 @@ export type HtmlSourceRef = {
   id: UUID; assetId: UUID; name: string; sha256: string; importedAt: string; widthMm: number; heightMm: number;
   elementIds: UUID[]; reviewFlags: string[];
 };
+export type PsdLayerRefV1 = {
+  id: string; parentId: string | null; path: string; name: string; kind: "group" | "text" | "pixel" | "smart_object" | "adjustment";
+  order: number; bboxPx: [number, number, number, number]; visible: boolean; locked: boolean; opacity: number; blendMode: string;
+  text?: { value: string; editableCandidate: boolean; reason: string } | null; compatibility: "editable_text" | "group" | "raster_render_unit";
+  renderUnitId: string; fingerprint: string; reviewFlags: string[];
+};
+export type PsdSourceRefV1 = {
+  id: UUID; assetId: UUID; sha256: string; name: string; format: "PSD" | "PSB"; widthPx: number; heightPx: number; dpi: number;
+  colorMode: "RGB"; bitDepth: 8 | 16; layers: PsdLayerRefV1[]; storageMode: "linked" | "portable";
+  reviewStatus: "manual_verification_required" | "verified"; elementIds: UUID[]; importedAt: string;
+};
+export type DesignStatementVisualSlotV1 = { elementId: UUID; fit: "contain" | "cover"; crop: { x: number; y: number; w: number; h: number } | null };
+export type DesignStatementPageV1 = {
+  id: UUID; number: number; section: string; sectionTitle: string; pageType: "cover" | "contents" | "hero_render" | "summary_axon" | "context_map" | "problem_evidence" | "concept_statement" | "process_sequence" | "program_mapping" | "full_plan" | "plan_callout" | "section_elevation" | "material_detail" | "gallery" | "final_synthesis";
+  title: string; claim: string; supportingText: string; caption: string; purpose: string; expectedSeconds: number; visualSlots: DesignStatementVisualSlotV1[];
+  sourceContentBlockIds: UUID[]; sourceElementIds: UUID[]; originalEvidence: string[]; notes: string; reviewFlags: string[]; approvalStatus: "draft" | "approved";
+};
+export type DesignStatementSpecV1 = {
+  schemaVersion: "1.0"; id: UUID; projectId: UUID; profile: "detailed" | "live"; audience: string;
+  pageSize: { widthMm: number; heightMm: number }; projectInfo: Record<string, string>; pages: DesignStatementPageV1[]; pageCount: number; targetPageCount: number;
+  approvedContentBlockIds: UUID[]; approvalStatus: "draft" | "approved"; aiMetadata: { mode: string; seed: number; sourcePolicy: "approved-blocks-only" }; createdAt: string; updatedAt: string;
+};
 
 export type PanelProjectV1 = {
-  schemaVersion: "1.2"; id: UUID; name: string; defaultDpi: number; colorMode: "RGB"; boards: PanelBoard[];
+  schemaVersion: "1.3"; id: UUID; name: string; defaultDpi: number; colorMode: "RGB"; boards: PanelBoard[];
   elements: PanelElement[]; assets: AssetRef[]; fonts: FontRef[]; contentBlocks: PanelContentBlock[];
   typographyStyles: TypographyStyle[]; layoutProposals: LayoutProposalV1[]; presentationSpecs: StudioPresentationSpecV1[];
-  htmlSources: HtmlSourceRef[];
+  htmlSources: HtmlSourceRef[]; psdSources: PsdSourceRefV1[]; designStatementSpecs: DesignStatementSpecV1[];
+  designStatement?: { projectInfo: Record<string, string> };
   createdAt: string; updatedAt: string;
 };
 export type PreflightIssue = {
@@ -175,24 +204,24 @@ export function makeBoard(name = "A0 · 01", widthMm = 841, heightMm = 1189): Pa
 }
 export function makeProject(name = "새 건축 패널"): PanelProjectV1 {
   const now = new Date().toISOString();
-  return { schemaVersion: "1.2", id: newId(), name, defaultDpi: 300, colorMode: "RGB", boards: [makeBoard()],
+  return { schemaVersion: "1.3", id: newId(), name, defaultDpi: 300, colorMode: "RGB", boards: [makeBoard()],
     elements: [], assets: [], fonts: [], contentBlocks: [], typographyStyles: structuredClone(DEFAULT_TYPOGRAPHY_STYLES),
-    layoutProposals: [], presentationSpecs: [], htmlSources: [], createdAt: now, updatedAt: now };
+    layoutProposals: [], presentationSpecs: [], htmlSources: [], psdSources: [], designStatementSpecs: [], designStatement: { projectInfo: {} }, createdAt: now, updatedAt: now };
 }
 export function migrateProject(input: unknown): PanelProjectV1 {
   const source = structuredClone(input) as Record<string, any>;
   if (!source || typeof source !== "object") throw new Error("프로젝트 데이터가 올바르지 않습니다.");
   const dpi = Number(source.defaultDpi) || 300;
   const project = source as unknown as PanelProjectV1;
-  project.schemaVersion = "1.2"; project.defaultDpi = dpi; project.contentBlocks ??= [];
-  project.typographyStyles ??= structuredClone(DEFAULT_TYPOGRAPHY_STYLES); project.layoutProposals ??= []; project.presentationSpecs ??= []; project.htmlSources ??= [];
+  project.schemaVersion = "1.3"; project.defaultDpi = dpi; project.contentBlocks ??= [];
+  project.typographyStyles ??= structuredClone(DEFAULT_TYPOGRAPHY_STYLES); project.layoutProposals ??= []; project.presentationSpecs ??= []; project.htmlSources ??= []; project.psdSources ??= []; project.designStatementSpecs ??= []; project.designStatement ??= { projectInfo: {} };
   project.boards = (project.boards ?? []).map((board) => ({ ...board, printProfile: board.printProfile ?? makePrintProfile(board.widthMm, board.heightMm, dpi) }));
   project.elements = (project.elements ?? []).map((element) => {
     const legacy = element as PanelElement & { flipX?: boolean; flipY?: boolean; transform?: TransformOptions };
     const transform = { ...DEFAULT_TRANSFORM, ...(legacy.transform ?? {}), flipX: legacy.transform?.flipX ?? legacy.flipX ?? false, flipY: legacy.transform?.flipY ?? legacy.flipY ?? false };
     const common = { ...element, transform, blendMode: element.blendMode ?? "normal" };
     if (element.type === "text") return { ...common, styleRole: element.styleRole ?? "body" };
-    if (element.type === "image" || element.type === "pdf") return { ...common, mask: { ...DEFAULT_MASK, ...(element.mask ?? {}), operations: element.mask?.operations ?? [] }, adjustments: { ...DEFAULT_ADJUSTMENTS, ...(element.adjustments ?? {}) } };
+    if (element.type === "image" || element.type === "pdf" || element.type === "psd_layer") return { ...common, mask: { ...DEFAULT_MASK, ...(element.mask ?? {}), operations: element.mask?.operations ?? [] }, adjustments: { ...DEFAULT_ADJUSTMENTS, ...(element.adjustments ?? {}) } };
     return common;
   }) as PanelElement[];
   return project;

@@ -18,8 +18,8 @@ class Issue:
 
 def validate_project(project: dict[str, Any], available_assets: set[str], available_fonts: set[str]) -> list[dict[str, Any]]:
     issues: list[Issue] = []
-    if project.get("schemaVersion") not in {"1.0", "1.1", "1.2"}:
-        issues.append(Issue("error", "schema-version", "지원하는 프로젝트 스키마는 1.0, 1.1, 1.2입니다."))
+    if project.get("schemaVersion") not in {"1.0", "1.1", "1.2", "1.3"}:
+        issues.append(Issue("error", "schema-version", "지원하는 프로젝트 스키마는 1.0, 1.1, 1.2, 1.3입니다."))
     boards = project.get("boards")
     elements = project.get("elements")
     if not isinstance(boards, list) or not boards:
@@ -48,6 +48,8 @@ def validate_project(project: dict[str, Any], available_assets: set[str], availa
             issues.append(Issue("error", "outside-board", f"{element.get('name', element_id)}: 보드 경계를 벗어났습니다.", str(board.get("id")), element_id))
         if element.get("type") in {"image", "pdf"} and str(element.get("assetId")) not in available_assets:
             issues.append(Issue("error", "missing-asset", f"{element.get('name', element_id)}: 원본 자산이 없습니다.", str(board.get("id")), element_id))
+        if element.get("type") == "psd_layer" and str(element.get("previewAssetId")) not in available_assets:
+            issues.append(Issue("error", "missing-psd-preview", f"{element.get('name', element_id)}: PSD 레이어 미리보기가 없습니다.", str(board.get("id")), element_id))
         font_id = element.get("fontAssetId") if element.get("type") == "text" else None
         if font_id and str(font_id) not in available_fonts:
             issues.append(Issue("error", "missing-font", f"{element.get('name', element_id)}: 글꼴 파일이 없습니다.", str(board.get("id")), element_id))
@@ -59,7 +61,7 @@ def validate_project(project: dict[str, Any], available_assets: set[str], availa
             issues.append(Issue("info", "blend-board-rasterized", f"{element.get('name', element_id)}: {blend_mode} 혼합 때문에 보드가 목표 DPI에서 합성됩니다.", str(board.get("id")), element_id))
         if abs(_number(transform.get("skewXDeg"))) > 60 or abs(_number(transform.get("skewYDeg"))) > 60:
             issues.append(Issue("error", "transform-skew", f"{element.get('name', element_id)}: 기울기 범위는 -60°~60°입니다.", str(board.get("id")), element_id))
-        if element.get("type") in {"image", "pdf"}:
+        if element.get("type") in {"image", "pdf", "psd_layer"}:
             mask = element.get("mask") or {}
             adjustments = element.get("adjustments") or {}
             if mask.get("enabled") and mask.get("operations"):

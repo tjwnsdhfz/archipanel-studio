@@ -3,7 +3,7 @@ import { ActiveSelection, Canvas, Ellipse, FabricImage, IText, Line, Rect, type 
 import { db } from "./db";
 import { composeCrop, cropFrame, FULL_CROP, normalizedDrag, type NormalizedRect } from "./crop";
 import { useStudio } from "./store";
-import type { ImageElement, MaskOperation, PanelElement, PdfElement, ShapeElement, TextElement } from "./types";
+import type { ImageElement, MaskOperation, PanelElement, PdfElement, PsdLayerElement, ShapeElement, TextElement } from "./types";
 import { DEFAULT_TRANSFORM, newId } from "./types";
 import { ptToMm, roundMm } from "./units";
 
@@ -26,8 +26,8 @@ export function CanvasStudio() {
   const updateElement = useStudio((s) => s.updateElement);
   const setTool = useStudio((s) => s.setTool);
   const board = project?.boards.find((candidate) => candidate.id === boardId);
-  const cropTarget = tool === "crop" && selectedIds.length === 1 ? project?.elements.find((element): element is ImageElement | PdfElement => element.id === selectedIds[0] && (element.type === "image" || element.type === "pdf")) : undefined;
-  const maskTarget = tool === "mask" && selectedIds.length === 1 ? project?.elements.find((element): element is ImageElement | PdfElement => element.id === selectedIds[0] && (element.type === "image" || element.type === "pdf")) : undefined;
+  const cropTarget = tool === "crop" && selectedIds.length === 1 ? project?.elements.find((element): element is ImageElement | PdfElement | PsdLayerElement => element.id === selectedIds[0] && (element.type === "image" || element.type === "pdf" || element.type === "psd_layer")) : undefined;
+  const maskTarget = tool === "mask" && selectedIds.length === 1 ? project?.elements.find((element): element is ImageElement | PdfElement | PsdLayerElement => element.id === selectedIds[0] && (element.type === "image" || element.type === "pdf" || element.type === "psd_layer")) : undefined;
 
   useEffect(() => {
     if (!shell.current || !board) return;
@@ -80,7 +80,7 @@ export function CanvasStudio() {
           const object = element.shape === "ellipse" ? new Ellipse({ ...common, rx: common.width / 2, ry: common.height / 2 }) : element.shape === "line" ? new Line([0, 0, common.width, common.height], common) : new Rect(common);
           addObject(element, object);
         } else {
-          const row = await db.assets.get(element.assetId);
+          const row = await db.assets.get(element.type === "psd_layer" ? element.previewAssetId : element.assetId);
           if (!row) continue;
           const blob = (element.type === "pdf" ? row.pageThumbnails?.[element.pageIndex] : undefined) ?? row.thumbnail ?? row.blob;
           if (element.type === "pdf" && !row.thumbnail) {
@@ -90,7 +90,7 @@ export function CanvasStudio() {
           const url = URL.createObjectURL(blob); urls.push(url);
           try {
             const image = await FabricImage.fromURL(url);
-            const crop = element.type === "image" ? element.cropNormalized : element.clipNormalized;
+            const crop = element.type === "pdf" ? element.clipNormalized : element.cropNormalized;
             const sourceWidth = Math.max(1, image.width); const sourceHeight = Math.max(1, image.height);
             const croppedWidth = Math.max(1, sourceWidth * crop.w); const croppedHeight = Math.max(1, sourceHeight * crop.h);
             image.set({ cropX: sourceWidth * crop.x, cropY: sourceHeight * crop.y, width: croppedWidth, height: croppedHeight, scaleX: (element.widthMm * scale) / croppedWidth, scaleY: (element.heightMm * scale) / croppedHeight });
@@ -199,7 +199,7 @@ export function CanvasStudio() {
   );
 }
 
-function MaskOverlay({ element, scale }: { element: ImageElement | PdfElement; scale: number }) {
+function MaskOverlay({ element, scale }: { element: ImageElement | PdfElement | PsdLayerElement; scale: number }) {
   const [kind, setKind] = useState<MaskOperation["kind"]>("rect"); const [op, setOp] = useState<MaskOperation["op"]>("add");
   const [selection, setSelection] = useState<NormalizedRect>(FULL_CROP); const [points, setPoints] = useState<{ x: number; y: number }[]>([]); const start = useRef<{ x: number; y: number } | null>(null);
   const state = useStudio();
@@ -209,14 +209,14 @@ function MaskOverlay({ element, scale }: { element: ImageElement | PdfElement; s
   return <div className="crop-layer mask-layer" style={{ left: element.xMm * scale, top: element.yMm * scale, width: element.widthMm * scale, height: element.heightMm * scale }}><div className="crop-toolbar"><strong>MASK</strong>{(["rect", "ellipse", "polygon", "brush"] as const).map((value) => <button className={kind === value ? "active" : ""} key={value} onClick={() => { setKind(value); setPoints([]); }}>{value === "rect" ? "사각" : value === "ellipse" ? "타원" : value === "polygon" ? "다각형" : "브러시"}</button>)}<button className={op === "add" ? "active" : ""} onClick={() => setOp("add")}>더하기</button><button className={op === "subtract" ? "active" : ""} onClick={() => setOp("subtract")}>빼기</button><button className="primary" onClick={commitMask}>적용</button><button onClick={() => state.setTool("select")}>취소</button></div><div className="crop-hit" onPointerDown={(event) => { const p = point(event); if (kind === "polygon") { setPoints((current) => [...current, p]); return; } start.current = p; setSelection({ ...p, w: 0, h: 0 }); setPoints([p]); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (!start.current) return; const p = point(event); if (kind === "brush") setPoints((current) => [...current, p]); else setSelection(normalizedDrag(start.current, p)); }} onPointerUp={(event) => { if (start.current && kind !== "brush") setSelection(normalizedDrag(start.current, point(event))); start.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}><div className={`mask-preview ${kind}`} style={{ left: `${selection.x * 100}%`, top: `${selection.y * 100}%`, width: `${selection.w * 100}%`, height: `${selection.h * 100}%` }} />{points.map((p, index) => <i className="mask-point" key={index} style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }} />)}</div></div>;
 }
 
-function CropOverlay({ element, scale }: { element: ImageElement | Extract<PanelElement, { type: "pdf" }>; scale: number }) {
+function CropOverlay({ element, scale }: { element: ImageElement | Extract<PanelElement, { type: "pdf" | "psd_layer" }>; scale: number }) {
   const [selection, setSelection] = useState<NormalizedRect>(FULL_CROP);
   const [ratio, setRatio] = useState("free");
   const [customRatio, setCustomRatio] = useState({ w: 3, h: 2 });
   const start = useRef<{ x: number; y: number } | null>(null);
   const updateElement = useStudio((state) => state.updateElement);
   const setTool = useStudio((state) => state.setTool);
-  const current = element.type === "image" ? element.cropNormalized : element.clipNormalized;
+  const current = element.type === "pdf" ? element.clipNormalized : element.cropNormalized;
   const point = (event: React.PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     return { x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height };
@@ -224,12 +224,12 @@ function CropOverlay({ element, scale }: { element: ImageElement | Extract<Panel
   const apply = (trimFrame: boolean) => {
     if (selection.w < .01 || selection.h < .01) return;
     const crop = composeCrop(current, selection);
-    const sourcePatch = element.type === "image" ? { cropNormalized: crop } : { clipNormalized: crop };
+    const sourcePatch = element.type === "pdf" ? { clipNormalized: crop } : { cropNormalized: crop };
     updateElement(element.id, { ...sourcePatch, ...(trimFrame ? cropFrame(element, selection) : {}) } as Partial<PanelElement>);
     setTool("select");
   };
   const reset = () => {
-    updateElement(element.id, element.type === "image" ? { cropNormalized: FULL_CROP } : { clipNormalized: FULL_CROP });
+    updateElement(element.id, element.type === "pdf" ? { clipNormalized: FULL_CROP } : { cropNormalized: FULL_CROP });
     setTool("select");
   };
   const ratioValue = (value: string) => value === "1:1" ? 1 : value === "4:3" ? 4 / 3 : value === "16:9" ? 16 / 9 : customRatio.w / Math.max(.01, customRatio.h);

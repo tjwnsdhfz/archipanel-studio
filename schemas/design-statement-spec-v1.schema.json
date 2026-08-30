@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archipanel.local/schemas/design-statement-spec-v1.schema.json",
+  "title": "DesignStatementSpecV1",
+  "type": "object",
+  "required": ["schemaVersion", "id", "projectId", "profile", "pageSize", "pages", "pageCount", "approvedContentBlockIds", "approvalStatus"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"}, "id": {"type": "string"}, "projectId": {"type": "string"}, "profile": {"enum": ["detailed", "live"]},
+    "pageSize": {"type": "object", "required": ["widthMm", "heightMm"], "properties": {"widthMm": {"type": "number"}, "heightMm": {"type": "number"}}},
+    "pageCount": {"type": "integer", "minimum": 1}, "approvedContentBlockIds": {"type": "array", "items": {"type": "string"}}, "approvalStatus": {"enum": ["draft", "approved"]},
+    "pages": {"type": "array", "items": {"type": "object", "required": ["id", "number", "section", "pageType", "title", "claim", "visualSlots", "sourceContentBlockIds", "sourceElementIds", "notes", "reviewFlags"], "properties": {
+      "id": {"type": "string"}, "number": {"type": "integer", "minimum": 1}, "section": {"type": "string"},
+      "pageType": {"enum": ["cover", "contents", "hero_render", "summary_axon", "context_map", "problem_evidence", "concept_statement", "process_sequence", "program_mapping", "full_plan", "plan_callout", "section_elevation", "material_detail", "gallery", "final_synthesis"]},
+      "title": {"type": "string"}, "claim": {"type": "string", "minLength": 1}, "visualSlots": {"type": "array"},
+      "sourceContentBlockIds": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "sourceElementIds": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+      "notes": {"type": "string"}, "reviewFlags": {"type": "array", "items": {"type": "string"}}
+    }}}
+  },
+  "additionalProperties": true
+}

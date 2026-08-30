@@ -84,8 +84,8 @@ export async function downloadFromEndpoint(project: PanelProjectV1, endpoint: st
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function packageProject(project: PanelProjectV1) {
-  return downloadFromEndpoint(project, "/api/project/package", `${safeName(project.name)}.archipanel`);
+export async function packageProject(project: PanelProjectV1, portablePsd = false) {
+  return downloadFromEndpoint(project, "/api/project/package", `${safeName(project.name)}.archipanel`, { portablePsd });
 }
 
 export async function openPackage(file: File): Promise<PanelProjectV1> {
@@ -94,7 +94,7 @@ export async function openPackage(file: File): Promise<PanelProjectV1> {
   if (!manifestEntry) throw new Error("manifest.json이 없는 프로젝트입니다.");
   const rawProject = JSON.parse(await manifestEntry.async("string")) as PanelProjectV1;
   const version = (rawProject as unknown as { schemaVersion?: string }).schemaVersion;
-  if (!version || !["1.0", "1.1", "1.2"].includes(version)) throw new Error(`지원하지 않는 스키마 ${version ?? "없음"}`);
+  if (!version || !["1.0", "1.1", "1.2", "1.3"].includes(version)) throw new Error(`지원하지 않는 스키마 ${version ?? "없음"}`);
   const project = migrateProject(rawProject);
   for (const asset of project.assets) {
     const path = asset.archivePath ?? Object.keys(zip.files).find((key) => key.startsWith(`assets/${asset.id}.`));

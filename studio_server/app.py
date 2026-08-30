@@ -34,6 +34,12 @@ from studio_server.demo import DEMO_SOURCE, build_demo_payload
 from studio_server.ai_storyboard import request_ai_storyboard
 from studio_server.intelligence import build_design_explanation_data, build_storyboard, recommend_layouts, suggest_content_blocks, validate_layout
 from studio_server.validation import validate_project
+from studio_server.psd_api import router as psd_router
+from studio_server.design_statement_api import router as design_statement_router
+from studio_server.design_statement import validate_design_statement
+from studio_server.design_statement_pdf import export_design_statement_pdf, render_pdf_pages
+from studio_server.asset_store import resolve_asset as resolve_linked_asset
+from studio_server.psd_support import render_layer as render_psd_layer
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_DIST = ROOT / "web" / "dist"
@@ -42,11 +48,13 @@ MAX_PROJECT_BYTES = 1500 * 1024 * 1024
 SYSTEM_FONTS = {alias: {"file": font_path(alias)} for alias in legacy_kopub_aliases()}
 app = FastAPI(title="ArchiPanel Studio Local Service", version=__version__)
 app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5174", "http://localhost:5174"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+app.include_router(psd_router)
+app.include_router(design_statement_router)
 
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "version": __version__, "capabilities": ["package", "validate", "pdf", "png", "jpg", "preview", "system-fonts", "font-inspection", "free-transform", "non-destructive-mask", "image-adjustments", "smart-alignment", "cross-board-clipboard", "content-labels", "layout-recommendation", "import-object-analysis", "multi-page-pdf-import", "html-panel-import", "design-explanation-data", "studio-storyboard", "generative-ai-storyboard", "reference-layouts", "decomposed-demo"]}
+    return {"ok": True, "version": __version__, "capabilities": ["package", "validate", "pdf", "png", "jpg", "preview", "system-fonts", "font-inspection", "free-transform", "non-destructive-mask", "image-adjustments", "smart-alignment", "cross-board-clipboard", "content-labels", "layout-recommendation", "import-object-analysis", "multi-page-pdf-import", "html-panel-import", "design-explanation-data", "studio-storyboard", "generative-ai-storyboard", "design-statement", "psd-psb-chunk-upload", "psd-layer-import", "psd-relink", "reference-layouts", "decomposed-demo"]}
 
 
 @app.get("/api/demo/decomposed-panel")
@@ -282,6 +290,16 @@ async def package(request: Request) -> FileResponse:
         for asset_id, previews in workspace.previews.items():
             for index, path in sorted(previews.items()):
                 archive.write(path, f"previews/assets/{asset_id}/{index}.jpg")
+        portable = bool(workspace.options.get("portablePsd", False))
+        for source_ref in manifest.get("psdSources", []):
+            if not portable and source_ref.get("storageMode") != "portable":
+                source_ref["storageMode"] = "linked"; continue
+            try:
+                linked = resolve_linked_asset(str(source_ref.get("assetId")))
+            except FileNotFoundError:
+                source_ref.setdefault("reviewFlags", []).append("portable 원본 누락"); continue
+            archive_path = f"linked-sources/{source_ref.get('sha256')}/source{linked.suffix.lower()}"
+            archive.write(linked, archive_path); source_ref["storageMode"] = "portable"; source_ref["archivePath"] = archive_path
         archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
     return FileResponse(output, media_type="application/vnd.archipanel+zip", filename=output.name, background=BackgroundTask(workspace.cleanup))
 
@@ -362,6 +380,47 @@ async def presentation_export_pptx(request: Request) -> FileResponse:
     except Exception as exc:
         workspace.cleanup(); raise HTTPException(500, f"PPTX 생성 또는 렌더 검증 실패: {exc}") from exc
     return FileResponse(output, media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation", filename=output.name, background=BackgroundTask(workspace.cleanup))
+
+
+def _approved_design_statement(workspace: "Workspace") -> dict[str, Any]:
+    spec_id = str(workspace.options.get("designStatementSpecId", ""))
+    spec = next((item for item in workspace.project.get("designStatementSpecs", []) if str(item.get("id")) == spec_id), None)
+    if not spec or spec.get("approvalStatus") != "approved":
+        raise HTTPException(403, "사용자가 승인한 설계설명서만 출력할 수 있습니다.")
+    validation = validate_design_statement(workspace.project, spec)
+    if not validation["valid"]: raise HTTPException(422, detail={"message": "설계설명서 역추적 검증 실패", **validation})
+    return spec
+
+
+@app.post("/api/presentation/design-statement/export-pptx")
+async def design_statement_export_pptx(request: Request) -> FileResponse:
+    workspace = await _workspace_from_request(request)
+    try:
+        spec = _approved_design_statement(workspace); asset_map = _prepare_studio_slide_assets(workspace)
+        output = workspace.root / f"{_safe_filename(workspace.project.get('name', 'project'))}-design-statement.pptx"; render_dir = workspace.root / "design-statement-pptx-renders"
+        spec_path=workspace.root/"design-statement.json";project_path=workspace.root/"project.json";map_path=workspace.root/"assets.json"
+        spec_path.write_text(json.dumps(spec,ensure_ascii=False),encoding="utf-8");project_path.write_text(json.dumps(workspace.project,ensure_ascii=False),encoding="utf-8");map_path.write_text(json.dumps(asset_map,ensure_ascii=False),encoding="utf-8")
+        dependencies=Path.home()/".cache"/"codex-runtimes"/"codex-primary-runtime"/"dependencies"/"node";node=dependencies/"bin"/"node.exe";modules=dependencies/"node_modules"
+        if not node.is_file(): raise RuntimeError("번들 Node 런타임을 찾을 수 없습니다.")
+        environment=os.environ.copy();environment["NODE_PATH"]=str(modules);environment["ARTIFACT_TOOL_PATH"]=str(modules/"@oai"/"artifact-tool"/"dist"/"artifact_tool.mjs")
+        result=subprocess.run([str(node),str(ROOT/"templates"/"build_design_statement.mjs"),str(spec_path),str(project_path),str(map_path),str(output),str(render_dir)],cwd=ROOT,env=environment,capture_output=True,text=True,encoding="utf-8",timeout=300,check=False)
+        if result.returncode!=0: raise RuntimeError((result.stderr or result.stdout).strip()[-3000:])
+        if len(list(render_dir.glob("slide-*.png")))!=len(spec.get("pages",[])) or len(list(render_dir.glob("slide-*.layout.json")))!=len(spec.get("pages",[])) or not (render_dir/"montage.webp").is_file(): raise RuntimeError("PPTX 페이지별 렌더 검증이 완전하지 않습니다.")
+    except HTTPException: workspace.cleanup(); raise
+    except Exception as exc: workspace.cleanup(); raise HTTPException(500,f"설계설명서 PPTX 생성 또는 렌더 검증 실패: {exc}") from exc
+    return FileResponse(output,media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",filename=output.name,background=BackgroundTask(workspace.cleanup))
+
+
+@app.post("/api/presentation/design-statement/export-pdf")
+async def design_statement_export_pdf(request: Request) -> FileResponse:
+    workspace=await _workspace_from_request(request)
+    try:
+        spec=_approved_design_statement(workspace);asset_map=_prepare_studio_slide_assets(workspace);output=workspace.root/f"{_safe_filename(workspace.project.get('name','project'))}-design-statement.pdf"
+        export_design_statement_pdf(spec,workspace.project,asset_map,output);render_dir=workspace.root/"design-statement-pdf-renders";count=render_pdf_pages(output,render_dir)
+        if count!=len(spec.get("pages",[])) or len(list(render_dir.glob("page-*.png")))!=count or not (render_dir/"montage.webp").is_file(): raise RuntimeError("PDF 페이지별 렌더 검증이 완전하지 않습니다.")
+    except HTTPException: workspace.cleanup(); raise
+    except Exception as exc: workspace.cleanup(); raise HTTPException(500,f"설계설명서 PDF 생성 또는 렌더 검증 실패: {exc}") from exc
+    return FileResponse(output,media_type="application/pdf",filename=output.name,background=BackgroundTask(workspace.cleanup))
 
 
 class Workspace:
@@ -489,14 +548,22 @@ def _inspect_reference_url(value: str) -> dict[str, Any]:
 def _prepare_studio_slide_assets(workspace: Workspace) -> dict[str, dict[str, str]]:
     prepared = workspace.root / "studio-slide-assets"; prepared.mkdir(parents=True, exist_ok=True)
     asset_map: dict[str, dict[str, str]] = {}
+    psd_sources = {str(item.get("id")): item for item in workspace.project.get("psdSources", [])}
     for element in workspace.project.get("elements", []):
-        if element.get("type") not in {"image", "pdf"}: continue
-        source = workspace.assets.get(str(element.get("assetId")))
+        if element.get("type") not in {"image", "pdf", "psd_layer"}: continue
+        source = workspace.assets.get(str(element.get("previewAssetId") if element.get("type") == "psd_layer" else element.get("assetId")))
         if not source or not source.is_file(): continue
         output = prepared / f"{element.get('id')}.png"
-        crop = element.get("cropNormalized") if element.get("type") == "image" else element.get("clipNormalized")
+        crop = element.get("clipNormalized") if element.get("type") == "pdf" else element.get("cropNormalized")
         crop = crop if isinstance(crop, dict) else {"x": 0, "y": 0, "w": 1, "h": 1}
-        if element.get("type") == "pdf":
+        if element.get("type") == "psd_layer":
+            linked = psd_sources.get(str(element.get("sourceId")))
+            try:
+                if linked: render_psd_layer(resolve_linked_asset(str(linked.get("assetId"))), str(element.get("layerId")), output, 6000)
+                else: raise FileNotFoundError()
+            except Exception:
+                with Image.open(source) as image: image.convert("RGBA").save(output,"PNG")
+        elif element.get("type") == "pdf":
             document = fitz.open(source); page_index = max(0, min(len(document) - 1, int(element.get("pageIndex", 0)))); page = document[page_index]
             rect = page.rect; clip = fitz.Rect(rect.x0 + rect.width * float(crop.get("x", 0)), rect.y0 + rect.height * float(crop.get("y", 0)), rect.x0 + rect.width * (float(crop.get("x", 0)) + float(crop.get("w", 1))), rect.y0 + rect.height * (float(crop.get("y", 0)) + float(crop.get("h", 1))))
             page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip, alpha=False).save(output); document.close()

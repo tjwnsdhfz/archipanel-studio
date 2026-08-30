@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archipanel.local/schemas/psd-source-v1.schema.json",
+  "title": "PsdSourceRefV1",
+  "type": "object",
+  "required": ["id", "assetId", "sha256", "name", "format", "widthPx", "heightPx", "dpi", "colorMode", "bitDepth", "layers", "storageMode", "reviewStatus", "elementIds"],
+  "properties": {
+    "id": {"type": "string"}, "assetId": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "name": {"type": "string"}, "format": {"enum": ["PSD", "PSB"]}, "widthPx": {"type": "integer", "minimum": 1}, "heightPx": {"type": "integer", "minimum": 1},
+    "dpi": {"type": "number", "minimum": 1}, "colorMode": {"const": "RGB"}, "bitDepth": {"enum": [8, 16]},
+    "storageMode": {"enum": ["linked", "portable"]}, "reviewStatus": {"enum": ["manual_verification_required", "verified"]},
+    "elementIds": {"type": "array", "items": {"type": "string"}},
+    "layers": {"type": "array", "items": {"type": "object", "required": ["id", "path", "kind", "bboxPx", "compatibility", "fingerprint", "reviewFlags"], "properties": {
+      "id": {"type": "string"}, "parentId": {"type": ["string", "null"]}, "path": {"type": "string"}, "kind": {"enum": ["group", "text", "pixel", "smart_object", "adjustment"]},
+      "bboxPx": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "integer"}}, "compatibility": {"enum": ["editable_text", "group", "raster_render_unit"]},
+      "fingerprint": {"type": "string"}, "reviewFlags": {"type": "array", "items": {"type": "string"}}
+    }}}
+  },
+  "additionalProperties": true
+}

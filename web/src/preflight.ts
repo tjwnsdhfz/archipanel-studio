@@ -46,6 +46,13 @@ export function runPreflight(project: PanelProjectV1): PreflightIssue[] {
         if (el.mask.enabled && el.mask.operations.length) issues.push({ severity: "info", code: "mask-rasterized", message: `${el.name}: 비정형 마스크로 해당 레이어가 ${board.printProfile.targetDpi}dpi에서 합성됩니다.`, elementId: el.id });
         if (Object.values(el.adjustments).some((value) => Math.abs(value) > .0001)) issues.push({ severity: "info", code: "adjustment-rasterized", message: `${el.name}: 이미지 보정이 원본을 보존한 채 출력에 적용됩니다.`, elementId: el.id });
       }
+      if(el.type==="psd_layer"){
+        const asset=assets.get(el.previewAssetId);const source=project.psdSources.find(item=>item.id===el.sourceId);
+        if(!asset)issues.push({severity:"error",code:"missing-psd-preview",message:`${el.name}: PSD 레이어 미리보기가 없습니다.`,boardId:board.id,elementId:el.id});
+        if(!source)issues.push({severity:"error",code:"missing-psd-source",message:`${el.name}: 연결 PSD 원본 참조가 없습니다.`,boardId:board.id,elementId:el.id});
+        else if(source.reviewStatus==="manual_verification_required")issues.push({severity:"warning",code:"psd-manual-verification",message:`${source.name}: Photoshop 합성 대조가 필요합니다.`,elementId:el.id});
+        if(el.reviewFlags.length)issues.push({severity:"warning",code:"psd-layer-review",message:`${el.name}: ${el.reviewFlags.join(", ")}`,elementId:el.id});
+      }
     }
     const touchesBleed = boardElements.some((el) => el.xMm <= 0 && el.yMm <= 0 && el.xMm + el.widthMm >= board.widthMm && el.yMm + el.heightMm >= board.heightMm);
     if (!touchesBleed && board.bleedMm > 0) issues.push({ severity: "warning", code: "bleed-empty", message: `${board.name}: 재단 여백까지 채운 배경이 없습니다.`, boardId: board.id });

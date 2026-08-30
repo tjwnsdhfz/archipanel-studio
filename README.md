@@ -1,4 +1,12 @@
-# ArchiPanel Studio 1.3.0
+# ArchiPanel Studio 1.4.0
+
+Studio 1.4는 기존 mm 기반 패널 편집과 16장 발표 경로를 유지하면서, PSD/PSB 원본 연결과 A3 설계설명서 편집·출력을 추가합니다.
+
+- `PSD` 도구: 32MB 청크 업로드, 청크/최종 SHA-256, 2GB 제한, 합성 대조 배경, 레이어 선택 가져오기, 원본 레이어 재렌더, 재연결 비교 API
+- `지능형 → 발표 → A3 설계설명서`: 승인 블록만 사용해 18–30쪽 적응형 초안을 만들고 순서·템플릿·문장을 웹에서 편집
+- 사용자 승인 전 PPTX/PDF 내보내기 차단, 출력 전 source ID 재검증
+- A3 420×297mm RGB PDF와 동일 scene graph의 편집 가능한 PPTX, 24개 발표자 노트와 `[Sources]` 역추적
+- PSD 합성 정확도는 실제 Photoshop 대조 전 `manual_verification_required`이며, 누락·모호 레이어는 자동 삭제하지 않음
 
 건축 패널을 실제 mm 크기로 설계하고 로컬에 저장한 뒤 RGB PDF·PNG·JPG로 출력하는 데스크톱용 웹 편집기입니다. 기존 PDF 블록 검토 및 PPTX 스토리보드 도구는 `legacy` 기능으로 남아 있으며 Studio와 데이터 및 실행 경로가 분리됩니다.
 
@@ -25,7 +33,7 @@ py -3 -m venv .venv
 
 사용자 패널 원본, 로컬 절대 경로가 포함된 분석물, 출력 파일, 글꼴, 가상환경은 저장소에서 제외합니다. GitHub Actions는 Python 테스트와 프런트엔드 테스트·빌드를 매 push마다 다시 검증합니다.
 
-## Studio 1.3 제작 흐름
+## Studio 1.4 제작 흐름
 
 `문서 설정 → 자산 배치 → 콘텐츠 블록 승인 → 3개 레이아웃 비교 → 선택 적용 → 가독성/인쇄 검사 → 스토리보드 승인 → PPTX 출력` 순서로 사용합니다.
 
@@ -134,7 +142,7 @@ previews/{board-id}.webp
 previews/assets/{asset-id}/{page-index}.jpg
 ```
 
-1.0 계약은 `schemas/panel-project-v1.schema.json`, 1.1 계약은 `schemas/panel-project-v1.1.schema.json`, 현재 계약은 `schemas/panel-project-v1.2.schema.json`에 있습니다. `examples/Studio_sample_project.json`은 1.1 호환 마이그레이션 fixture입니다. 자산은 manifest 안에 Base64로 넣지 않으며 패키징 시 SHA-256과 `archivePath`를 기록합니다. 공용 참고 레이아웃 라이브러리는 프로젝트 패키지에 중복 저장하지 않습니다.
+1.0–1.2 계약은 기존 schema 파일에 보존되고, Studio 1.4가 사용하는 프로젝트 schemaVersion은 `1.3`입니다. PSD 계약은 `schemas/psd-source-v1.schema.json`, 설명서 계약은 `schemas/design-statement-spec-v1.schema.json`에 있습니다. 1.0–1.2 프로젝트는 첫 로드 전에 원본 스냅샷을 남기고 1.3으로 마이그레이션합니다. 자산은 manifest 안에 Base64로 넣지 않으며 패키징 시 SHA-256과 `archivePath`를 기록합니다.
 
 ## 인쇄 출력 원칙
 

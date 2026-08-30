@@ -1,4 +1,4 @@
-import type { LayoutProposalV1, PanelContentBlock, PanelProjectV1, ReferenceLayoutV1, StudioPresentationSpecV1 } from "./types";
+import type { DesignStatementSpecV1, LayoutProposalV1, PanelContentBlock, PanelProjectV1, ReferenceLayoutV1, StudioPresentationSpecV1 } from "./types";
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -29,3 +29,5 @@ export type AiStoryboardConfig = { endpoint: string; model: string; apiKey: stri
 export async function makeAiStoryboard(project: PanelProjectV1, durationMinutes: number, slideCount: number, audience: string, prompt: string, config: AiStoryboardConfig) {
   return (await post<{ spec: StudioPresentationSpecV1 }>("/api/presentation/ai-storyboard", { project, durationMinutes, slideCount, audience, prompt, config })).spec;
 }
+export async function makeDesignStatement(project:PanelProjectV1,profile:"detailed"|"live",targetPageCount:number,audience:string){return (await post<{spec:DesignStatementSpecV1}>("/api/presentation/design-statement/draft",{project,profile,targetPageCount,audience,seed:1401})).spec;}
+export async function validateDesignStatement(project:PanelProjectV1,spec:DesignStatementSpecV1){return post<{valid:boolean;errors:string[];warnings:string[];traceCoverage:number}>("/api/presentation/design-statement/validate",{project,spec});}

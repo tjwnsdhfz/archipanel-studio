@@ -140,8 +140,8 @@ def _draw_element(page: fitz.Page, rect: fitz.Rect, element: dict[str, Any], ass
         _draw_text(page, rect, element, fonts, opacity)
     elif kind == "shape":
         _draw_shape(page, rect, element, opacity)
-    elif kind == "image":
-        path = assets.get(str(element.get("assetId")))
+    elif kind in {"image", "psd_layer"}:
+        path = assets.get(str(element.get("previewAssetId") if kind == "psd_layer" else element.get("assetId")))
         if path:
             _draw_image(page, rect, element, path, opacity)
     elif kind == "pdf":
