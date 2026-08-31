@@ -229,3 +229,47 @@ Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서
 1. 즉시 사용은 로컬 또는 Tailscale HTTPS 주소로 접속한다.
 2. 공개 인터넷 배포가 필요하면 `https://render.com/deploy?repo=https://github.com/tjwnsdhfz/archipanel-studio`에서 Blueprint를 연결하고 고유 암호를 입력한다.
 3. 생성된 `onrender.com` 주소에서 health, 401 인증 차단, 로그인, 자산 업로드, PDF 출력을 재검증한 뒤에만 공개 배포 완료로 승격한다.
+
+---
+
+# 2026-08-31 · 무료 공모전 MVP 배포
+
+## 목적
+
+유료 서버 기능 배포 대신, 창업 공모전 심사위원이 로그인 없이 제품 가치와 전체 흐름을 확인할 수 있는 이미지 중심 클릭형 MVP를 무료로 공개한다.
+
+## 현재 상태
+
+- Netlify 무료 팀에 `archipanel-studio-mvp` 사이트를 생성했다.
+- 공개 주소: `https://archipanel-studio-mvp.netlify.app`
+- 공개 첫 화면은 `문제 → 패널 분해 → 3안 비교 → 설계설명서` 흐름을 보여주는 공모전 심사용 MVP이다.
+- 차별적 문구, 클릭형 4단계 시연, 레이아웃 3안, 24장 설계설명서 예시를 한 페이지에 구성했다.
+- 기존 편집기는 `?studio=1`로 분리해 보존했다. 정적 배포에서 로컬 API가 필요한 PSD/PDF 변환·PPTX 출력은 시연 대상이 아니다.
+
+## 변경 파일
+
+- `web/src/CompetitionMvp.tsx` — 공모전 소개와 4단계 클릭형 시연
+- `web/src/competition.css` — 건축 스튜디오형 반응형 시각 체계
+- `web/src/App.tsx` — MVP/편집기 진입 분리
+- `web/public/showcase/panel-demo.webp` — 사용자 제공 패널의 축소 시연 자산
+- `web/index.html` — 공모전용 메타데이터
+- `netlify.toml`, `.gitignore` — 정적 SPA 무료 배포 설정
+
+## 검증
+
+- Vitest: 7개 파일·19개 테스트 통과
+- TypeScript strict + Vite production build 통과
+- Playwright 데스크톱·모바일 렌더 확인
+- 4단계 탭과 설계설명서 전환 동작 확인
+- 상용 URL 루트 HTTP 200, 제목 및 샘플 이미지 로딩 확인
+- Netlify production deploy ID: `6a94d36f4557b9391d2775e4`
+
+## 블로커
+
+공모전 이미지 중심 MVP 사용에 블로커는 없다. 정적 무료 배포이므로 서버가 필요한 대용량 PSD 분해, 서버 PDF 출력, PPTX 생성은 로컬 Studio 또는 후속 백엔드 배포가 필요하다.
+
+## 다음 행동
+
+1. 공모전 제출서에 공개 URL과 데모 캡처를 연결한다.
+2. 심사 질문에는 정적 MVP와 검증된 로컬 편집기의 범위를 구분해 설명한다.
+3. 선발 후 실제 사용자 테스트 결과를 바탕으로 서버 기능을 단계적으로 분리 배포한다.

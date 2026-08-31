@@ -19,6 +19,7 @@ import { analyzeHtmlPanel, materializeHtmlPanel, type HtmlPanelAnalysis } from "
 import { DocumentSettingsModal, IntelligencePanel, TypographyRoleControl } from "./Studio11Panels";
 import { recommendLayouts } from "./smartApi";
 import { PsdImportModal, PsdRelinkModal } from "./PsdImportModal";
+import { CompetitionMvp } from "./CompetitionMvp";
 
 const TOOL_ITEMS: { id: Tool; label: string; key: string; icon: typeof MousePointer2 }[] = [
   { id: "select", label: "선택", key: "V", icon: MousePointer2 },
@@ -34,7 +35,9 @@ const TOOL_ITEMS: { id: Tool; label: string; key: string; icon: typeof MousePoin
 ];
 
 export function App() {
+  const [showStudio, setShowStudio] = useState(() => new URLSearchParams(window.location.search).get("studio") === "1");
   const project = useStudio((s) => s.project);
+  if (!showStudio && !project) return <CompetitionMvp onOpenStudio={() => { window.history.replaceState({}, "", "?studio=1"); setShowStudio(true); }} />;
   return project ? <Studio /> : <StartScreen />;
 }
 

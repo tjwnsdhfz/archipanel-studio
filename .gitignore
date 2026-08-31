@@ -19,3 +19,6 @@ web/*.tsbuildinfo
 web/vite.config.js
 web/vite.config.d.ts
 .playwright-cli/
+
+# Local Netlify folder
+.netlify
