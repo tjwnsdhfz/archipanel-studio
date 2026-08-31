@@ -6,7 +6,6 @@ services:
     region: singapore
     autoDeployTrigger: checksPass
     healthCheckPath: /api/health
-    maxShutdownDelaySeconds: 120
     envVars:
       - key: ARCHIPANEL_PUBLIC_MODE
         value: "1"

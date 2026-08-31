@@ -214,6 +214,7 @@ Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서
 - 공개 Funnel 실제 검증: 미인증 `/` 401, 인증 `/` 200, 시스템 글꼴 API 403, `deploymentMode=public`, `authenticationRequired=true`, `verified-pptx-export=true`
 - GitHub Actions에 Linux Docker BuildKit 컨테이너 빌드 검증 작업 추가
 - GitHub Actions `33343032885` 통과: Windows Python·Web 전체 검증과 Linux production Docker 이미지 빌드 모두 성공
+- Render Blueprint 실제 검사에서 영구 디스크와 `maxShutdownDelaySeconds` 동시 사용 불가를 확인해 해당 옵션을 제거했다.
 
 ## 블로커
 
