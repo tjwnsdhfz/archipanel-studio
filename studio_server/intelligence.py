@@ -236,12 +236,18 @@ def recommend_layouts(project: dict[str, Any], board_id: str, reference_layouts:
         actual_occupancy = max(0.0, min(100.0, actual_area / safe_area * 100))
         packing["occupancy"] = round(actual_occupancy, 2)
         packing["whitespaceRatio"] = round(100 - actual_occupancy, 2)
-        if actual_occupancy < 80:
-            warnings.append(f"실제 객체 면적 {actual_occupancy:.0f}%: 빈 공간 검토 필요")
+        if actual_occupancy > 96:
+            warnings.append(f"실제 객체 면적 {actual_occupancy:.0f}%: 거터와 백색 공간 검토 필요")
         digest = int(hashlib.sha256(f"{project.get('id')}:{board_id}:{strategy}".encode()).hexdigest()[:8], 16)
-        scores = {"hardConstraints": 100, "readingOrder": 92 if strategy == "narrative" else 84, "visualHierarchy": 94 if strategy == "hero" else 86, "technicalComparison": 95 if strategy == "technical" else 80, "spaceUtilization": packing["occupancy"], "gridAlignment": packing["gridAlignment"], "referenceSimilarity": round(60 + similarity * 35, 2)}
+        whitespace_continuity = max(55.0, 96.0 - abs(actual_occupancy - 78.0) * 1.1)
+        density_balance = max(50.0, 96.0 - max(0.0, actual_occupancy - 90.0) * 3.2)
+        scores = {"hardConstraints": 100, "readingOrder": 92 if strategy == "narrative" else 84, "visualHierarchy": 94 if strategy == "hero" else 86, "technicalComparison": 95 if strategy == "technical" else 80, "whitespaceContinuity": round(whitespace_continuity, 2), "densityBalance": round(density_balance, 2), "gutterConsistency": 100.0, "safeMargin": 100.0, "gridAlignment": packing["gridAlignment"], "referenceSimilarity": round(60 + similarity * 35, 2)}
+        reasons = ["승인된 콘텐츠 순서와 원본 비율을 유지했습니다.", f"{int(packing['rowCount'])}개 행에 일정한 거터와 정렬 축을 적용했습니다."]
+        if strategy == "hero": reasons.append("중요도가 높은 대표 증거를 먼저 배치했습니다.")
+        elif strategy == "technical": reasons.append("도면 비교 블록을 우선해 기술 검토 흐름을 만들었습니다.")
+        else: reasons.append("맥락에서 경험으로 이어지는 읽기 순서를 유지했습니다.")
         proposals.append({"id": str(uuid4()), "projectId": str(project.get("id")), "boardId": board_id, "strategy": strategy, "placements": placements, "scoreBreakdown": scores,
-            "referenceLayoutIds": [str(item.get("id")) for item in nearest[:3]], "warnings": sorted(set(warnings)), "packingMetrics": packing, "createdAt": _now()})
+            "referenceLayoutIds": [str(item.get("id")) for item in nearest[:3]], "recommendationReasons": reasons, "warnings": sorted(set(warnings)), "packingMetrics": packing, "createdAt": _now()})
     return proposals
 
 

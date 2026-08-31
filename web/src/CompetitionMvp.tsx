@@ -4,6 +4,9 @@ import {
   Layers3, MousePointer2, Play, ScanSearch, Sparkles, WandSparkles,
 } from "lucide-react";
 import "./competition.css";
+import "./competition-critique.css";
+import { analyzeBoard, FEATURE_KEYS, FEATURE_LABELS } from "./critique";
+import { DEFAULT_TRANSFORM, makeProject, type CritiqueView, type PanelElement } from "./types";
 
 type DemoStep = "source" | "blocks" | "layouts" | "deck";
 type LayoutKind = "narrative" | "hero" | "technical";
@@ -119,6 +122,8 @@ export function CompetitionMvp({ onOpenStudio }: { onOpenStudio: () => void }) {
         </div>
       </section>
 
+      <CritiquePitchDemo />
+
       <section className="pitch-impact" id="impact">
         <div className="section-index">03 / IMPACT</div>
         <div className="impact-grid">
@@ -133,7 +138,7 @@ export function CompetitionMvp({ onOpenStudio }: { onOpenStudio: () => void }) {
         </div>
       </section>
 
-      <footer className="pitch-footer"><span>ARCHIPANEL STUDIO / MVP 1.4</span><span>LOCAL-FIRST · SOURCE-TRUE · RGB</span><span>© 2026</span></footer>
+      <footer className="pitch-footer"><span>ARCHIPANEL STUDIO / MVP 1.5</span><span>LOCAL-FIRST · SOURCE-TRUE · RGB</span><span>© 2026</span></footer>
     </main>
   );
 }
@@ -156,4 +161,11 @@ function LayoutsStage({ selected, onSelect }: { selected: LayoutKind; onSelect: 
 
 function DeckStage() {
   return <div className="deck-stage"><div className="deck-pages"><article className="deck-cover"><span>01</span><img src="/showcase/panel-demo.webp" alt="설계설명서 표지 예시" /><b>LEARNING<br />IN THE DEEP</b></article><article><span>05</span><small>CONCEPT</small><b>Learning<br />Node</b><div className="deck-diagram"><i /><i /><i /><i /></div></article><article><span>11</span><small>SPATIAL EVIDENCE</small><b>Floor Plan</b><div className="deck-plan" /></article></div><div className="deck-meta"><p><b>24</b> PAGES</p><p><b>100%</b> SOURCE LINKED</p><p><b>PPTX</b> EDITABLE TEXT</p></div></div>;
+}
+
+function CritiquePitchDemo(){
+  const[view,setView]=useState<CritiqueView>("grayscale");
+  const result=useMemo(()=>{const project=makeProject("공모전 크리틱 샘플");const board=project.boards[0];board.widthMm=1800;board.heightMm=900;const rect=(id:string,name:string,x:number,y:number,w:number,h:number,locked=false):PanelElement=>({id,boardId:board.id,type:"shape",shape:"rect",name,xMm:x,yMm:y,widthMm:w,heightMm:h,rotationDeg:0,opacity:1,visible:true,locked,transform:structuredClone(DEFAULT_TRANSFORM),fill:"#333333",stroke:"#333333",strokeWidthMm:0,dash:[]});project.elements=[rect("hero","대표 렌더",15,15,575,870,true),rect("concept","개념",625,25,440,285),rect("detail","디테일",1100,25,675,285),rect("site","배치",625,345,400,525),rect("plans","평면",1060,345,715,525)];board.elementIds=project.elements.map((item)=>item.id);project.contentBlocks=project.elements.map((item,index)=>({id:`block-${index}`,boardId:board.id,elementIds:[item.id],label:index===0?"render":index===1?"concept":index===3?"master_plan":"floor_plan",title:item.name,summary:"",readingOrder:index+1,importance:index===0?5:index===1?4:3,confidence:1,status:"approved"}));return analyzeBoard(project,board.id);},[]);
+  const views: [CritiqueView,string][] = [["original","원본"],["grayscale","흑백"],["thumbnail","축소판"],["blur","블러"]];
+  return <section className="pitch-critique"><div className="section-index light">03 / DESIGN CRITIQUE</div><div className="pitch-critique-head"><div><p>NOT AN AESTHETIC ORACLE</p><h2>정답 대신,<br/><em>판단할 근거</em>를.</h2></div><p>이 진단은 실제 아이트래킹이 아닌<br/>요소 배치·위계·읽기 순서에 대한 규칙 기반 예상입니다.</p></div><div className="pitch-critique-shell"><div className="pitch-critique-board"><div className="pitch-critique-tabs">{views.map(([id,label])=><button key={id} className={view===id?"active":""} onClick={()=>setView(id)}>{label}</button>)}</div><div className={`pitch-board-image ${view}`}><img src="/showcase/panel-demo.webp" alt="패널 크리틱 예시"/>{result.hierarchy.items.filter((item)=>item.tier!=="tertiary").map((item)=><i key={item.elementId} className={item.tier} style={{left:`${item.bounds.x*100}%`,top:`${item.bounds.y*100}%`,width:`${item.bounds.w*100}%`,height:`${item.bounds.h*100}%`}}><b>{item.tier==="primary"?"P":"S"}{Math.round(item.weight)}</b></i>)}<svg viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points={result.gazePath.map((node)=>`${node.x*100},${node.y*100}`).join(" ")}/>{result.gazePath.map((node)=><g key={node.elementId}><circle cx={node.x*100} cy={node.y*100} r="1.7"/><text x={node.x*100} y={node.y*100+.8}>{node.order}</text></g>)}</svg></div></div><aside><div className="pitch-score"><b>{Math.round(result.overallScore)}</b><span>OVERALL</span></div>{FEATURE_KEYS.map((key)=><div className="pitch-metric" key={key}><span><b>{FEATURE_LABELS[key]}</b><em>{Math.round(result.featureVector[key])}</em></span><i><u style={{width:`${result.featureVector[key]}%`}}/></i></div>)}<small>요소 배치 기준 분석 · 이미지 내부 여백 제외</small></aside></div></section>;
 }

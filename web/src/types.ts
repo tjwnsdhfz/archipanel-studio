@@ -107,7 +107,49 @@ export type LayoutProposalV1 = {
   id: UUID; projectId: UUID; boardId: UUID; strategy: "narrative" | "hero" | "technical";
   placements: ElementPlacement[]; scoreBreakdown: Record<string, number>; referenceLayoutIds: UUID[];
   packingMetrics?: { occupancy: number; whitespaceRatio: number; gridAlignment: number; rowCount: number };
+  critique?: CritiqueResultV1; recommendationReasons?: string[]; tasteMatchScore?: number;
   warnings: string[]; createdAt: string;
+};
+
+export type DesignFeatureVector = {
+  hierarchySeparation: number; focalAreaRatio: number; whitespaceContinuity: number;
+  densityBalance: number; gridAlignment: number; spacingConsistency: number; readingFlowCoherence: number;
+};
+export type HierarchyTier = "primary" | "secondary" | "tertiary";
+export type HierarchyItem = {
+  elementId: UUID; tier: HierarchyTier; weight: number; reason: string;
+  bounds: { x: number; y: number; w: number; h: number };
+};
+export type HierarchyDiagnostic = {
+  score: number; primaryClarity: number; tierSeparation: number; secondaryCompetition: number;
+  titleVisualRelationship: number; detailDensity: number; items: HierarchyItem[];
+};
+export type DensityCluster = { kind: "intentional" | "isolated"; cellCount: number; bbox: { x: number; y: number; w: number; h: number } };
+export type DensityDiagnostic = {
+  gridSize: 40; cells: number[]; whitespaceRatio: number; continuityScore: number; balanceScore: number;
+  overcrowdedCellCount: number; clusters: DensityCluster[]; scope: "element-layout-only";
+};
+export type GazePathNode = { elementId: UUID; order: number; x: number; y: number; confidence: number; source: "approved-reading-order" | "heuristic" };
+export type CritiqueWarning = { code: string; severity: "warning" | "info"; message: string; suggestion: string; elementIds: UUID[] };
+export type CritiqueView = "original" | "grayscale" | "thumbnail" | "blur";
+export type CritiqueSettingsV1 = {
+  enabled: boolean; view: CritiqueView; showDensity: boolean; showGaze: boolean; showHierarchy: boolean;
+  projectPreferenceAdjustments: Partial<DesignFeatureVector>;
+};
+export type CritiqueResultV1 = {
+  id: UUID; projectId: UUID; boardId: UUID; boardRevisionHash: string; overallScore: number;
+  hierarchy: HierarchyDiagnostic; density: DensityDiagnostic; gazePath: GazePathNode[];
+  featureVector: DesignFeatureVector; warnings: CritiqueWarning[]; confidence: number; generatedAt: string;
+};
+export type LayoutDecisionRecordV1 = {
+  id: UUID; projectId: UUID; boardId: UUID; proposalId: UUID; selectedStrategy: "narrative" | "hero" | "technical";
+  rejectedProposalIds: UUID[]; reasonTags: string[]; reasonNote: string; beforeFeatures: DesignFeatureVector;
+  selectedFeatures: DesignFeatureVector; rejectedFeatures: DesignFeatureVector[]; finalFeatures?: DesignFeatureVector;
+  learned: boolean; createdAt: string;
+};
+export type LocalTasteProfileV1 = {
+  id: "default"; weights: Record<keyof DesignFeatureVector, number>; sampleCount: number; confidence: number;
+  projectAdjustments: Record<string, Partial<DesignFeatureVector>>; updatedAt: string;
 };
 export type StudioSlideSpec = {
   number: number; title: string; purpose: string; keySentence: string; expectedSeconds: number;
@@ -162,10 +204,11 @@ export type DesignStatementSpecV1 = {
 };
 
 export type PanelProjectV1 = {
-  schemaVersion: "1.3"; id: UUID; name: string; defaultDpi: number; colorMode: "RGB"; boards: PanelBoard[];
+  schemaVersion: "1.4"; id: UUID; name: string; defaultDpi: number; colorMode: "RGB"; boards: PanelBoard[];
   elements: PanelElement[]; assets: AssetRef[]; fonts: FontRef[]; contentBlocks: PanelContentBlock[];
   typographyStyles: TypographyStyle[]; layoutProposals: LayoutProposalV1[]; presentationSpecs: StudioPresentationSpecV1[];
   htmlSources: HtmlSourceRef[]; psdSources: PsdSourceRefV1[]; designStatementSpecs: DesignStatementSpecV1[];
+  critiqueSettings: CritiqueSettingsV1;
   designStatement?: { projectInfo: Record<string, string> };
   createdAt: string; updatedAt: string;
 };
@@ -204,17 +247,18 @@ export function makeBoard(name = "A0 · 01", widthMm = 841, heightMm = 1189): Pa
 }
 export function makeProject(name = "새 건축 패널"): PanelProjectV1 {
   const now = new Date().toISOString();
-  return { schemaVersion: "1.3", id: newId(), name, defaultDpi: 300, colorMode: "RGB", boards: [makeBoard()],
+  return { schemaVersion: "1.4", id: newId(), name, defaultDpi: 300, colorMode: "RGB", boards: [makeBoard()],
     elements: [], assets: [], fonts: [], contentBlocks: [], typographyStyles: structuredClone(DEFAULT_TYPOGRAPHY_STYLES),
-    layoutProposals: [], presentationSpecs: [], htmlSources: [], psdSources: [], designStatementSpecs: [], designStatement: { projectInfo: {} }, createdAt: now, updatedAt: now };
+    layoutProposals: [], presentationSpecs: [], htmlSources: [], psdSources: [], designStatementSpecs: [], critiqueSettings: { enabled: false, view: "original", showDensity: false, showGaze: true, showHierarchy: true, projectPreferenceAdjustments: {} }, designStatement: { projectInfo: {} }, createdAt: now, updatedAt: now };
 }
 export function migrateProject(input: unknown): PanelProjectV1 {
   const source = structuredClone(input) as Record<string, any>;
   if (!source || typeof source !== "object") throw new Error("프로젝트 데이터가 올바르지 않습니다.");
   const dpi = Number(source.defaultDpi) || 300;
   const project = source as unknown as PanelProjectV1;
-  project.schemaVersion = "1.3"; project.defaultDpi = dpi; project.contentBlocks ??= [];
+  project.schemaVersion = "1.4"; project.defaultDpi = dpi; project.contentBlocks ??= [];
   project.typographyStyles ??= structuredClone(DEFAULT_TYPOGRAPHY_STYLES); project.layoutProposals ??= []; project.presentationSpecs ??= []; project.htmlSources ??= []; project.psdSources ??= []; project.designStatementSpecs ??= []; project.designStatement ??= { projectInfo: {} };
+  project.critiqueSettings ??= { enabled: false, view: "original", showDensity: false, showGaze: true, showHierarchy: true, projectPreferenceAdjustments: {} };
   project.boards = (project.boards ?? []).map((board) => ({ ...board, printProfile: board.printProfile ?? makePrintProfile(board.widthMm, board.heightMm, dpi) }));
   project.elements = (project.elements ?? []).map((element) => {
     const legacy = element as PanelElement & { flipX?: boolean; flipY?: boolean; transform?: TransformOptions };

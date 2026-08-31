@@ -18,8 +18,8 @@ class Issue:
 
 def validate_project(project: dict[str, Any], available_assets: set[str], available_fonts: set[str]) -> list[dict[str, Any]]:
     issues: list[Issue] = []
-    if project.get("schemaVersion") not in {"1.0", "1.1", "1.2", "1.3"}:
-        issues.append(Issue("error", "schema-version", "지원하는 프로젝트 스키마는 1.0, 1.1, 1.2, 1.3입니다."))
+    if project.get("schemaVersion") not in {"1.0", "1.1", "1.2", "1.3", "1.4"}:
+        issues.append(Issue("error", "schema-version", "지원하는 프로젝트 스키마는 1.0–1.4입니다."))
     boards = project.get("boards")
     elements = project.get("elements")
     if not isinstance(boards, list) or not boards:

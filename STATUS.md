@@ -274,3 +274,52 @@ Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서
 1. 공모전 제출서에 공개 URL과 데모 캡처를 연결한다.
 2. 심사 질문에는 정적 MVP와 검증된 로컬 편집기의 범위를 구분해 설명한다.
 3. 선발 후 실제 사용자 테스트 결과를 바탕으로 서버 기능을 단계적으로 분리 배포한다.
+
+---
+
+# 2026-08-31 · Studio 1.5 디자인 크리틱 및 로컬 취향 학습
+
+## 목적
+
+채움률 중심 추천을 `진단 → 3안 비교 → 선택 이유 기록 → 명시적 수정 학습`으로 확장하고, 정적 Netlify MVP에서도 같은 규칙 기반 진단을 서버 없이 시연한다.
+
+## 현재 상태
+
+- 프로젝트 스키마 1.4와 Dexie v4로 올리고 기존 프로젝트 최초 변환 전 스냅샷 경로를 유지했다.
+- 편집기 상단 `크리틱`에서 원본·흑백·축소판·블러 보기와 위계·밀도·예상 시선 오버레이를 켜고 끌 수 있다.
+- 40×40 밀도 셀, 백색 공간 군집, Primary/Secondary/Tertiary, 7개 특징 점수, 요소 ID와 수정 후보를 오프라인 TypeScript 엔진으로 계산한다.
+- 추천 3안에 동일한 크리틱 점수와 로컬 취향 일치도를 적용하고, 선택 이유를 기록해야 배치를 적용할 수 있다.
+- 추천 적용은 기존 단일 undo 명령을 유지한다. 사용자가 `이 수정에서 학습`을 눌러야만 가중치가 바뀐다.
+- 공개 첫 화면에 실제 공용 엔진으로 계산한 4개 크리틱 보기와 7개 점수 시연을 추가했다.
+
+## 변경 파일
+
+- `web/src/critique.ts`, `web/src/critique.test.ts` — 결정론적 진단·revision hash·취향 학습 엔진과 테스트
+- `web/src/CritiquePanel.tsx`, `web/src/critique.css`, `web/src/CanvasStudio.tsx`, `web/src/App.tsx` — 편집기 크리틱 스트립과 SVG 오버레이
+- `web/src/Studio11Panels.tsx`, `web/src/critique-layout.css` — 3안 진단 비교, 선택 이유, 결정 기록
+- `web/src/CompetitionMvp.tsx`, `web/src/competition-critique.css` — 공개 오프라인 크리틱 시연
+- `web/src/types.ts`, `web/src/db.ts`, `schemas/panel-project-v1.4.schema.json` — 1.4 계약과 Dexie v4 테이블
+- `studio_server/intelligence.py`, `studio_server/validation.py` — 새 추천 평가축과 1.4 검증
+- `README.md`, `web/package.json`
+
+## 검증
+
+- Web: Vitest 8개 파일·25개 테스트 통과. 200개 요소 크리틱 계산이 300ms 기준을 통과했다.
+- Python: 36개 테스트 통과.
+- TypeScript strict + Vite production build 통과.
+- 실제 Chromium에서 샘플 패널 로드, 크리틱 ON, 블러 보기, 경고 요소 선택, 3안 선택 이유 기록, 단일 적용, 명시적 학습을 확인했다.
+- 브라우저 재로드 후 프로젝트와 로컬 취향 `학습 중 1/20` 복구를 확인했다.
+- 브라우저 콘솔 오류·경고 0건.
+- Netlify production deploy `6a95290e59eebd539c393e1d` 완료. 공개 URL HTTP 200과 MVP 1.5 크리틱 섹션을 실제 Chromium에서 확인했다.
+
+## 블로커
+
+- 규칙 기반 크리틱은 실제 아이트래킹이나 이미지 내부 의미 분석이 아니다. UI에도 이 한계를 명시했다.
+- 공개 Netlify는 정적 MVP이므로 로컬 편집·진단·취향 학습은 작동하지만 서버가 필요한 PSD/PDF 변환과 PPTX 출력은 로컬 Studio가 필요하다.
+- 20회 이전 취향 일치도는 학습 중 상태이며 정식 사용자 선호로 과대 해석하지 않는다.
+
+## 다음 행동
+
+1. 실제 사용자 5–10명의 레이아웃 선택 이유와 수정 패턴을 익명 특징으로 수집해 규칙 가중치의 방향성을 검토한다.
+2. 공개 MVP 사용자 테스트에서는 점수보다 `근거 → 요소 → 수정 후보` 이해 여부를 먼저 측정한다.
+3. 이미지 내부 여백과 실제 시선 데이터는 별도 동의·검증 설계 없이는 현재 점수에 포함하지 않는다.

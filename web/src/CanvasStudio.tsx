@@ -3,13 +3,13 @@ import { ActiveSelection, Canvas, Ellipse, FabricImage, IText, Line, Rect, type 
 import { db } from "./db";
 import { composeCrop, cropFrame, FULL_CROP, normalizedDrag, type NormalizedRect } from "./crop";
 import { useStudio } from "./store";
-import type { ImageElement, MaskOperation, PanelElement, PdfElement, PsdLayerElement, ShapeElement, TextElement } from "./types";
+import type { CritiqueResultV1, CritiqueSettingsV1, ImageElement, MaskOperation, PanelElement, PdfElement, PsdLayerElement, ShapeElement, TextElement } from "./types";
 import { DEFAULT_TRANSFORM, newId } from "./types";
 import { ptToMm, roundMm } from "./units";
 
 type TaggedObject = FabricObject & { elementId?: string };
 
-export function CanvasStudio() {
+export function CanvasStudio({ critique, critiqueSettings }: { critique?: CritiqueResultV1; critiqueSettings?: CritiqueSettingsV1 } = {}) {
   const canvasNode = useRef<HTMLCanvasElement>(null);
   const shell = useRef<HTMLDivElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
@@ -181,7 +181,7 @@ export function CanvasStudio() {
   if (!board) return <div className="canvas-empty">보드를 선택하세요.</div>;
   const ticks = Array.from({ length: Math.floor(board.widthMm / 50) + 1 }, (_, index) => index * 50);
   return (
-    <div className="canvas-shell" ref={shell} data-testid="canvas-shell"
+    <div className={`canvas-shell critique-view-${critiqueSettings?.view??"original"}`} ref={shell} data-testid="canvas-shell"
       onPointerDown={(event) => { if (tool === "hand" && shell.current) { pan.current = { x: event.clientX, y: event.clientY, left: shell.current.scrollLeft, top: shell.current.scrollTop }; shell.current.setPointerCapture(event.pointerId); } }}
       onPointerMove={(event) => { if (pan.current && shell.current) { shell.current.scrollLeft = pan.current.left - (event.clientX - pan.current.x); shell.current.scrollTop = pan.current.top - (event.clientY - pan.current.y); } }}
       onPointerUp={(event) => { pan.current = null; if (shell.current?.hasPointerCapture(event.pointerId)) shell.current.releasePointerCapture(event.pointerId); }}>
@@ -192,11 +192,21 @@ export function CanvasStudio() {
         <canvas ref={canvasNode} />
         {board.grid.enabled && <div className="grid-overlay" style={{ backgroundSize: `${board.grid.sizeMm * scale}px ${board.grid.sizeMm * scale}px` }} />}
         <div className="safe-area" style={{ inset: board.safeMarginMm * scale }} />
+        {critique && critiqueSettings?.enabled && <CritiqueOverlay result={critique} settings={critiqueSettings}/>}
         {cropTarget && cropTarget.rotationDeg % 360 === 0 && <CropOverlay element={cropTarget} scale={scale} />}
         {maskTarget && maskTarget.rotationDeg % 360 === 0 && <MaskOverlay element={maskTarget} scale={scale} />}
       </div>
     </div>
   );
+}
+
+function CritiqueOverlay({ result, settings }: { result: CritiqueResultV1; settings: CritiqueSettingsV1 }) {
+  const size=result.density.gridSize; const gaze=result.gazePath.map((node)=>`${node.x*100},${node.y*100}`).join(" ");
+  return <svg className="critique-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="패널 크리틱 오버레이">
+    {settings.showDensity&&<g className="density-map">{result.density.cells.map((value,index)=>{if(value<.055)return null;const x=index%size,y=Math.floor(index/size);const fill=value>1.05?"#e76532":value>.55?"#d7b45a":"#4da8ae";return <rect key={index} x={x/size*100} y={y/size*100} width={100/size+.05} height={100/size+.05} fill={fill} opacity={Math.min(.46,.08+value*.25)}/>;})}</g>}
+    {settings.showHierarchy&&<g className="hierarchy-map">{result.hierarchy.items.filter((item)=>item.tier!=="tertiary").map((item)=><g key={item.elementId} className={item.tier}><rect x={item.bounds.x*100} y={item.bounds.y*100} width={item.bounds.w*100} height={item.bounds.h*100}/><text x={item.bounds.x*100+1} y={item.bounds.y*100+3}>{item.tier==="primary"?"P":"S"}{Math.round(item.weight)}</text></g>)}</g>}
+    {settings.showGaze&&result.gazePath.length>0&&<g className="gaze-map"><polyline points={gaze}/>{result.gazePath.map((node)=><g key={`${node.elementId}-${node.order}`}><circle cx={node.x*100} cy={node.y*100} r="1.7"/><text x={node.x*100} y={node.y*100+.7}>{node.order}</text></g>)}</g>}
+  </svg>;
 }
 
 function MaskOverlay({ element, scale }: { element: ImageElement | PdfElement | PsdLayerElement; scale: number }) {

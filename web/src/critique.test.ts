@@ -1,0 +1,23 @@
+import { describe, expect, it } from "vitest";
+import { analyzeBoard, boardRevisionHash, defaultTasteProfile, learnTaste, tasteMatch } from "./critique";
+import { DEFAULT_TRANSFORM, makeProject, type PanelElement } from "./types";
+
+function fixture() {
+  const project = makeProject("크리틱 테스트"); const board = project.boards[0];
+  const elements: PanelElement[] = [
+    { id: "hero", boardId: board.id, type: "shape", shape: "rect", name: "대표 렌더", xMm: 40, yMm: 50, widthMm: 420, heightMm: 360, rotationDeg: 0, opacity: 1, visible: true, locked: true, transform: structuredClone(DEFAULT_TRANSFORM), fill: "#333333", stroke: "#333333", strokeWidthMm: 0, dash: [] },
+    { id: "title", boardId: board.id, type: "text", name: "제목", xMm: 500, yMm: 50, widthMm: 270, heightMm: 80, rotationDeg: 0, opacity: 1, visible: true, locked: false, transform: structuredClone(DEFAULT_TRANSFORM), text: "ARCHITECTURE", fontFamily: "KoPub", fontSizePt: 64, lineHeight: 1.1, letterSpacingPt: 0, align: "left", verticalAlign: "top", color: "#111111", weight: 700, italic: false, underline: false, autoSize: false, styleRole: "title" },
+    { id: "hidden", boardId: board.id, type: "shape", shape: "rect", name: "숨김", xMm: 0, yMm: 0, widthMm: 800, heightMm: 1100, rotationDeg: 0, opacity: 1, visible: false, locked: false, transform: structuredClone(DEFAULT_TRANSFORM), fill: "#000000", stroke: "#000000", strokeWidthMm: 0, dash: [] },
+  ];
+  project.elements = elements; board.elementIds = elements.map((item) => item.id); project.contentBlocks = [{ id: "block", boardId: board.id, elementIds: ["hero", "title"], label: "concept", title: "핵심", summary: "", readingOrder: 1, importance: 5, confidence: 1, status: "approved" }];
+  return { project, board };
+}
+
+describe("Studio 1.5 critique", () => {
+  it("is deterministic and excludes hidden elements", () => { const { project, board } = fixture(); const first = analyzeBoard(project, board.id); const second = analyzeBoard(project, board.id); expect(first.boardRevisionHash).toBe(second.boardRevisionHash); expect(first.hierarchy.items.map((item) => item.elementId)).not.toContain("hidden"); expect(first.density.cells).toHaveLength(1600); expect(first.density.cells.every((value) => value >= 0)).toBe(true); });
+  it("changes revision when geometry changes", () => { const { project, board } = fixture(); const before = boardRevisionHash(project, board.id); project.elements[0].xMm += 5; expect(boardRevisionHash(project, board.id)).not.toBe(before); });
+  it("uses approved reading order and traces source elements", () => { const { project, board } = fixture(); const result = analyzeBoard(project, board.id); expect(result.gazePath[0].source).toBe("approved-reading-order"); expect(result.hierarchy.items.every((item) => Boolean(item.elementId))).toBe(true); });
+  it("learns only when explicitly called and stores no content", () => { const initial = defaultTasteProfile(); const { project, board } = fixture(); const features = analyzeBoard(project, board.id).featureVector; expect(initial.sampleCount).toBe(0); const learned = learnTaste(initial, features, [{ ...features, gridAlignment: 0 }], { ...features, densityBalance: 100 }, "project"); expect(learned.sampleCount).toBe(1); expect(learned.confidence).toBe(.05); expect(JSON.stringify(learned)).not.toContain("ARCHITECTURE"); expect(tasteMatch(features, learned, "project")).toBeGreaterThan(0); });
+  it("marks heuristic gaze as low confidence without approved reading order", () => { const { project, board } = fixture(); project.contentBlocks = []; const result = analyzeBoard(project, board.id); expect(result.gazePath.every((node) => node.source === "heuristic")).toBe(true); expect(result.confidence).toBeLessThan(.8); expect(result.warnings.some((warning) => warning.code === "heuristic-flow")).toBe(true); });
+  it("analyzes 200 visible elements within the interactive target", () => { const { project, board } = fixture(); project.contentBlocks = []; project.elements = Array.from({ length: 200 }, (_, index) => ({ id: `shape-${index}`, boardId: board.id, type: "shape" as const, shape: "rect" as const, name: `요소 ${index}`, xMm: 10 + (index % 20) * 40, yMm: 10 + Math.floor(index / 20) * 90, widthMm: 28, heightMm: 65, rotationDeg: 0, opacity: 1, visible: true, locked: index % 9 === 0, transform: structuredClone(DEFAULT_TRANSFORM), fill: "#444444", stroke: "#444444", strokeWidthMm: 0, dash: [] })); board.elementIds = project.elements.map((item) => item.id); const started = performance.now(); const result = analyzeBoard(project, board.id); const elapsed = performance.now() - started; expect(result.hierarchy.items).toHaveLength(200); expect(elapsed).toBeLessThan(300); });
+});

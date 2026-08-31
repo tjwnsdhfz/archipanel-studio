@@ -7,12 +7,14 @@ import {
   Crop, Group, Ungroup, Upload, ZoomIn, ZoomOut, FlipHorizontal2, FlipVertical2, Grid3X3, RefreshCw, Copy, ClipboardPaste,
 } from "lucide-react";
 import { CanvasStudio } from "./CanvasStudio";
+import { CritiqueDock } from "./CritiquePanel";
 import { db, loadProjectRow, requestPersistentStorage, saveProject, storageStatus, type ProjectRow } from "./db";
+import { analyzeBoard, boardRevisionHash, defaultTasteProfile, learnTaste } from "./critique";
 import { fetchSystemFonts, inspectFontFile, installSystemFont, loadFontFace, refreshSystemFonts, restoreProjectFonts, type SystemFontDefinition } from "./fonts";
 import { runPreflight } from "./preflight";
 import { addAssetFile, analyzeImportFile, dataUrlToBlob, downloadFromEndpoint, inspectFile, loadDecomposedPanelDemo, openPackage, packageProject, safeName, type ImportAnalysis } from "./projectIO";
 import { useStudio } from "./store";
-import type { AssetRef, ContentLabel, PanelElement, Tool } from "./types";
+import type { AssetRef, ContentLabel, CritiqueResultV1, CritiqueSettingsV1, LayoutDecisionRecordV1, LocalTasteProfileV1, PanelElement, Tool } from "./types";
 import { BOARD_PRESETS, CONTENT_LABELS, DEFAULT_ADJUSTMENTS, DEFAULT_MASK, DEFAULT_TRANSFORM, makeBoard, newId, syncBoardPrintProfile } from "./types";
 import { applyTransformPatch } from "./transform";
 import { analyzeHtmlPanel, materializeHtmlPanel, type HtmlPanelAnalysis } from "./htmlImport";
@@ -105,6 +107,10 @@ function Studio() {
   const [psdFile, setPsdFile] = useState<File>();
   const [relinkSourceId,setRelinkSourceId]=useState<string>(); const [relinkFile,setRelinkFile]=useState<File>();
   const [notice, setNotice] = useState("");
+  const [critiqueResult, setCritiqueResult] = useState<CritiqueResultV1>();
+  const [critiqueBusy, setCritiqueBusy] = useState(false);
+  const [tasteProfile, setTasteProfile] = useState<LocalTasteProfileV1>(defaultTasteProfile());
+  const [pendingDecision, setPendingDecision] = useState<LayoutDecisionRecordV1>();
   const [storage, setStorage] = useState({ persisted: false, usage: 0, quota: 0 });
   const assetInput = useRef<HTMLInputElement>(null);
   const backgroundInput = useRef<HTMLInputElement>(null);
@@ -113,6 +119,7 @@ function Studio() {
   const relinkInput=useRef<HTMLInputElement>(null);
   const fontInput = useRef<HTMLInputElement>(null);
   const issues = useMemo(() => runPreflight(project!), [project]);
+  const critiqueHash = useMemo(() => boardRevisionHash(project!, board.id), [project, board.id]);
   const errors = issues.filter((issue) => issue.severity === "error").length;
   const openDemo = async () => { setNotice("첨부 패널을 14개 편집 영역으로 준비 중…"); try { const payload = await loadDecomposedPanelDemo(); await saveProject(payload.project); state.loadProject(payload.project); setTab("flow"); setNotice(`${payload.regionCount}개 독립 레이어와 3개 자동 추천안을 열었습니다.`); } catch (reason) { setNotice(reason instanceof Error ? reason.message : "예시를 불러오지 못했습니다."); } };
 
@@ -125,7 +132,20 @@ function Studio() {
   }, [project, state.dirty]);
 
   useEffect(() => { void storageStatus().then(setStorage); }, []);
+  useEffect(() => { void db.tasteProfiles.get("default").then((profile) => setTasteProfile(profile ?? defaultTasteProfile())); }, []);
   useEffect(() => { if (project) void restoreProjectFonts(project); }, [project?.id]);
+  useEffect(() => {
+    if (!project?.critiqueSettings.enabled) { setCritiqueBusy(false); return; }
+    let cancelled=false; setCritiqueBusy(true);
+    const timer=window.setTimeout(()=>void (async()=>{
+      const id=`critique-${board.id}-${critiqueHash}`; let result=await db.critiqueResults.get(id);
+      if(!result){result=analyzeBoard(project,board.id);await db.critiqueResults.put(result);}
+      const decisions=await db.layoutDecisions.where("[projectId+boardId]").equals([project.id,board.id]).toArray();
+      const pending=decisions.filter((item)=>!item.learned).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
+      if(!cancelled){setCritiqueResult(result);setPendingDecision(pending);setCritiqueBusy(false);}
+    })(),500);
+    return()=>{cancelled=true;window.clearTimeout(timer);};
+  },[critiqueHash,project?.critiqueSettings.enabled,project?.id,board.id]);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
@@ -181,6 +201,16 @@ function Studio() {
     setNotice(`${family} 글꼴을 프로젝트에 추가했습니다.`);
   };
 
+  const updateCritiqueSettings=(patch:Partial<CritiqueSettingsV1>)=>state.mutate((draft)=>{Object.assign(draft.critiqueSettings,patch);});
+  const learnFromCurrent=async()=>{
+    if(!pendingDecision||!critiqueResult)return;
+    const next=learnTaste(tasteProfile,pendingDecision.selectedFeatures,pendingDecision.rejectedFeatures,critiqueResult.featureVector,project!.id);
+    const decision={...pendingDecision,finalFeatures:critiqueResult.featureVector,learned:true};
+    await db.transaction("rw",db.tasteProfiles,db.layoutDecisions,async()=>{await db.tasteProfiles.put(next);await db.layoutDecisions.put(decision);});
+    setTasteProfile(next);setPendingDecision(undefined);setNotice(`수정 전·후 특징 7개를 로컬 취향에 반영했습니다. (${next.sampleCount}/20)`);
+  };
+  const resetTaste=async()=>{const next=defaultTasteProfile();await db.tasteProfiles.put(next);setTasteProfile(next);setNotice("이 PC의 로컬 취향 프로필을 초기화했습니다.");};
+
   return (
     <main className="studio">
       <header className="topbar">
@@ -191,6 +221,7 @@ function Studio() {
           <button title="다시 실행" disabled={!state.future.length} onClick={state.redo}><Redo2 size={16} /></button>
           <span className="divider" />
           <button className="demo-top-button" title="첨부 패널 분해 예시 열기" onClick={() => void openDemo()}><LayoutPanelTop size={16} /> 분해 예시</button>
+          <button className={project!.critiqueSettings.enabled?"critique-top-button active":"critique-top-button"} title="패널 위계·밀도·예상 시선 진단" onClick={()=>updateCritiqueSettings({enabled:!project!.critiqueSettings.enabled})}><ScanSearch size={16}/> 크리틱 <small>{project!.critiqueSettings.enabled?(critiqueBusy?"…":Math.round(critiqueResult?.overallScore??0)):"OFF"}</small></button>
           <button className="document-button" title="보드 크기와 DPI" onClick={() => setDocumentOpen(true)}><Settings2 size={16} /> 문서 설정 <small>{board.widthMm}×{board.heightMm} · {board.printProfile.targetDpi}dpi</small></button>
           <button title="축소" onClick={() => state.setZoom(zoom - 0.1)}><ZoomOut size={16} /></button><span className="zoom-label">{Math.round(zoom * 100)}%</span><button title="확대" onClick={() => state.setZoom(zoom + 0.1)}><ZoomIn size={16} /></button>
           <button className={errors ? "preflight has-error" : "preflight"} onClick={() => setPreflightOpen(true)}><ScanSearch size={16} /> 인쇄 검사 {errors ? <b>{errors}</b> : null}</button>
@@ -209,7 +240,7 @@ function Studio() {
         <input ref={htmlInput} hidden multiple type="file" accept=".html,.htm,image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => { setHtmlFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
         <input ref={psdInput} hidden type="file" accept=".psd,.psb,image/vnd.adobe.photoshop" onChange={(e) => { setPsdFile(e.target.files?.[0]); e.target.value = ""; }} />
       </aside>
-      <section className={`workspace tool-${tool}`}><CanvasStudio /></section>
+      <section className={`workspace tool-${tool} ${project!.critiqueSettings.enabled?"critique-active":""}`}><CanvasStudio critique={critiqueResult} critiqueSettings={project!.critiqueSettings}/>{project!.critiqueSettings.enabled&&<CritiqueDock result={critiqueResult} busy={critiqueBusy} settings={project!.critiqueSettings} profile={tasteProfile} pendingDecision={pendingDecision} onSettings={updateCritiqueSettings} onSelect={(ids)=>{state.setSelection(ids);if(ids.length)setNotice(`${ids.length}개 진단 요소를 선택했습니다.`);}} onLearn={()=>void learnFromCurrent()} onReset={()=>void resetTaste()}/>}</section>
       <aside className="inspector">
         <div className="tabs">
           <button className={tab === "properties" ? "active" : ""} onClick={() => setTab("properties")}><Settings2 size={14} /> 속성</button>
