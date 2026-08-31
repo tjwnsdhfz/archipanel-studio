@@ -193,6 +193,7 @@ Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서
 - Tailscale의 기존 443/8765 서비스를 보존하고 Studio만 HTTPS 8443으로 연결했다.
 - 비밀번호 보호 공개 Funnel을 HTTPS 10000에 별도로 연결했다. 이 임시 공개 주소는 이 PC가 켜져 있고 백그라운드 Studio가 실행 중일 때만 유지된다.
 - Docker Compose와 Render Blueprint에서 공개 모드는 Basic Auth, 서버 시스템 글꼴 차단, 환경별 업로드 한도, 영구 데이터 디렉터리를 적용한다.
+- Render 계정 `Modu Brain`에 GitHub 로그인을 완료하고 `tjwnsdhfz/archipanel-studio`의 새 Blueprint 화면까지 진입했다.
 - 로컬/Tailscale 모드는 검증된 PPTX 런타임을 감지하며 `/api/health`에 `verified-pptx-export`를 표시한다.
 - Docker/Render에는 비공개 Artifact Tool을 포함하지 않으며 PPTX 요청은 명시적 503을 반환한다. PDF/PNG/JPG와 설계설명서 PDF는 계속 제공한다.
 
@@ -219,6 +220,7 @@ Studio의 끊어진 로컬 접속을 복구하고, 다른 PC·브라우저에서
 ## 블로커
 
 - Render의 실제 외부 HTTPS URL 생성은 사용자의 Render 계정 연결, 유료 1 CPU·2GB/5GB 디스크 승인, `ARCHIPANEL_AUTH_PASSWORD` 입력이 필요하므로 아직 배포 완료로 주장하지 않는다.
+- 현재 Render가 결제 카드와 청구 주소 등록을 요구한다. 카드 등록 시 `$1 USD` 임시 승인이 수행되므로 사용자가 Chrome의 Render 결제 창에서 직접 완료해야 한다.
 - 이 PC에는 Docker가 설치되어 있지 않아 로컬 컨테이너 실행 검증은 할 수 없다. push 후 GitHub Actions 컨테이너 작업으로 검증한다.
 - 공개 컨테이너의 편집 가능한 PPTX 생성은 공개 배포 가능한 대체 렌더 워커와 슬라이드별 렌더 QA가 구현되기 전까지 비활성이다. 현재 Windows 로컬/Tailscale 경로에서는 기존 검증 런타임을 사용한다.
 
