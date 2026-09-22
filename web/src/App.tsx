@@ -454,4 +454,3 @@ function ExportModal({ errors, onClose, setNotice }: { errors: number; onClose: 
 }
 
 function SparklesIcon() { return <span aria-hidden="true" style={{ color: "#c85d32", fontSize: 12 }}>✦</span>; }
-
