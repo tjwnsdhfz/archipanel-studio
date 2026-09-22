@@ -33,7 +33,7 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
     if (!shell.current || !board) return;
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      setScale(Math.max(0.08, Math.min((width - 120) / board.widthMm, (height - 120) / board.heightMm)) * zoom);
+      setScale(Math.max(0.08, Math.min((width - 16) / board.widthMm, (height - 16) / board.heightMm)) * zoom);
     });
     observer.observe(shell.current);
     return () => observer.disconnect();
@@ -45,12 +45,14 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
     const canvas = new Canvas(canvasNode.current, {
       width: Math.round(board.widthMm * scale), height: Math.round(board.heightMm * scale),
       backgroundColor: board.backgroundColor, preserveObjectStacking: true, selection: tool === "select",
+      fireMiddleClick: false, fireRightClick: false, stopContextMenu: false,
     });
     fabricRef.current = canvas;
     const urls: string[] = [];
 
     const addObject = (element: PanelElement, object: TaggedObject) => {
       object.set({
+        originX: "left", originY: "top",
         left: element.xMm * scale, top: element.yMm * scale,
         angle: element.rotationDeg, skewX: element.transform.skewXDeg, skewY: element.transform.skewYDeg,
         flipX: element.transform.flipX, flipY: element.transform.flipY, opacity: element.opacity, visible: element.visible,
@@ -101,7 +103,7 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
       for (const guide of board.guides) {
         const position = guide.positionMm * scale;
         const line = guide.axis === "x" ? new Line([position, 0, position, board.heightMm * scale]) : new Line([0, position, board.widthMm * scale, position]);
-        line.set({ stroke: "#26a6b8", strokeWidth: 1, selectable: false, evented: false, excludeFromExport: true });
+        line.set({ originX: "left", originY: "top", stroke: "#26a6b8", strokeWidth: 1, selectable: false, evented: false, excludeFromExport: true });
         canvas.add(line);
       }
       const selected = canvas.getObjects().filter((object) => {

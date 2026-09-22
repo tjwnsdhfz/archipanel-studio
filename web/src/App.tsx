@@ -12,7 +12,7 @@ import { db, loadProjectRow, requestPersistentStorage, saveProject, storageStatu
 import { analyzeBoard, boardRevisionHash, defaultTasteProfile, learnTaste } from "./critique";
 import { fetchSystemFonts, inspectFontFile, installSystemFont, loadFontFace, refreshSystemFonts, restoreProjectFonts, type SystemFontDefinition } from "./fonts";
 import { runPreflight } from "./preflight";
-import { addAssetFile, analyzeImportFile, dataUrlToBlob, downloadFromEndpoint, inspectFile, loadDecomposedPanelDemo, openPackage, packageProject, safeName, type ImportAnalysis } from "./projectIO";
+import { addAssetFile, analyzeImportFile, dataUrlToBlob, downloadFromEndpoint, downloadCanvasPreview, inspectFile, loadDecomposedPanelDemo, openPackage, packageProject, safeName, type ImportAnalysis } from "./projectIO";
 import { useStudio } from "./store";
 import type { AssetRef, ContentLabel, CritiqueResultV1, CritiqueSettingsV1, LayoutDecisionRecordV1, LocalTasteProfileV1, PanelElement, Tool } from "./types";
 import { BOARD_PRESETS, CONTENT_LABELS, DEFAULT_ADJUSTMENTS, DEFAULT_MASK, DEFAULT_TRANSFORM, makeBoard, newId, syncBoardPrintProfile } from "./types";
@@ -22,6 +22,8 @@ import { DocumentSettingsModal, IntelligencePanel, TypographyRoleControl } from 
 import { recommendLayouts } from "./smartApi";
 import { PsdImportModal, PsdRelinkModal } from "./PsdImportModal";
 import { CompetitionMvp } from "./CompetitionMvp";
+
+const STATIC_MODE = import.meta.env.VITE_STATIC_MODE === "true";
 
 const TOOL_ITEMS: { id: Tool; label: string; key: string; icon: typeof MousePointer2 }[] = [
   { id: "select", label: "선택", key: "V", icon: MousePointer2 },
@@ -37,7 +39,7 @@ const TOOL_ITEMS: { id: Tool; label: string; key: string; icon: typeof MousePoin
 ];
 
 export function App() {
-  const [showStudio, setShowStudio] = useState(() => new URLSearchParams(window.location.search).get("studio") === "1");
+  const [showStudio, setShowStudio] = useState(() => new URLSearchParams(window.location.search).get("showcase") !== "1");
   const project = useStudio((s) => s.project);
   if (!showStudio && !project) return <CompetitionMvp onOpenStudio={() => { window.history.replaceState({}, "", "?studio=1"); setShowStudio(true); }} />;
   return project ? <Studio /> : <StartScreen />;
@@ -63,9 +65,9 @@ function StartScreen() {
     <main className="welcome">
       <div className="welcome-grid" aria-hidden="true" />
       <section className="welcome-copy">
-        <div className="eyebrow"><span>LOCAL-FIRST</span><span>RGB / 300 DPI</span><span>MM-TRUE CANVAS</span></div>
-        <h1>ARCHI<span>PANEL</span><br />STUDIO</h1>
-        <p>도면, 렌더, 문장을 각각의 레이어로 조립하는<br />건축 패널 전용 로컬 편집기.</p>
+        <div className="eyebrow"><span>ArchiPanel Studio</span><span>건축 패널 작업실</span></div>
+        <h1>도면과 렌더를<br /><span>하나의 패널로.</span></h1>
+        <p>새 패널에 이미지를 넣고 텍스트와 도형을 배치하세요. 작업 파일로 보관하고 다시 이어서 편집할 수 있습니다.</p>
         <div className="welcome-actions">
           <button className="primary large" onClick={() => createProject()}><FilePlus2 size={18} /> 새 패널 시작</button>
           <button className="ghost large" onClick={() => packageInput.current?.click()}><Archive size={18} /> 프로젝트 열기</button>
@@ -74,11 +76,8 @@ function StartScreen() {
         {error && <p className="error-line">{error}</p>}
       </section>
       <section className="recent-panel">
-        <div className="section-label"><span>RECENT PROJECTS</span><span>{recent.length.toString().padStart(2, "0")}</span></div>
-        <button className="demo-project-card" disabled={demoBusy} onClick={() => void openDemo()}>
-          <img src="/api/demo/decomposed-panel/preview" alt="첨부 건축 패널 분해 예시 미리보기" />
-          <span className="demo-card-overlay"><small>GUIDED EXAMPLE · 14 BLOCKS</small><strong>{demoBusy ? "원본 자산 준비 중…" : "첨부 패널 분해·자동 배치 예시"}</strong><em>원본 비교 + 독립 crop 레이어 + 3개 추천안</em></span>
-        </button>
+        <div className="section-label"><span>이 브라우저의 최근 작업</span><span>{recent.length.toString().padStart(2, "0")}</span></div>
+        <div className="welcome-guide"><h2>처음이라면 이렇게 시작하세요</h2><ol><li>패널 크기를 정하고 PNG·JPG·WebP 이미지를 추가합니다.</li><li>도형·텍스트를 배치하고 작업 파일을 저장합니다.</li><li>화면 PNG로 공유하거나 연결된 서버에서 인쇄용 PDF를 출력합니다.</li></ol><button disabled={demoBusy || STATIC_MODE} onClick={() => void openDemo()}>{demoBusy ? "예시 준비 중…" : "서버 연결 예시 열기"}</button><p>PNG·JPG·WebP는 각 25MB·4천만 픽셀, 작업 백업은 합계 100MB까지 지원합니다. 기본 작업은 브라우저에서 처리합니다. PDF·PSD 분석과 인쇄 출력은 서버 연결이 필요합니다.</p></div>
         {recent.length ? recent.map((row, index) => (
           <button className="recent-row" key={row.id} onClick={() => void loadProjectRow(row).then(loadProject).catch((reason) => setError(reason instanceof Error ? reason.message : "프로젝트를 열 수 없습니다."))}>
             <span className="recent-index">{String(index + 1).padStart(2, "0")}</span>
@@ -86,7 +85,7 @@ function StartScreen() {
             <ChevronRight size={16} />
           </button>
         )) : <div className="recent-empty">아직 저장된 프로젝트가 없습니다.<br />첫 패널을 시작해 보세요.</div>}
-        <div className="welcome-note"><ShieldCheck size={16} /><span>파일은 이 컴퓨터에만 저장됩니다.<br />로그인과 업로드가 없습니다.</span></div>
+        <div className="welcome-note"><ShieldCheck size={16} /><span>기본 이미지 작업과 백업은 브라우저에서 처리합니다.<br />PDF·PSD 분석 및 인쇄 출력 시 파일을 서버에 전송합니다.</span></div>
       </section>
       <footer className="welcome-footer"><span>ARCHIPANEL / 01</span><span>BUILT FOR ARCHITECTURE BOARDS</span></footer>
     </main>
@@ -113,6 +112,7 @@ function Studio() {
   const [pendingDecision, setPendingDecision] = useState<LayoutDecisionRecordV1>();
   const [storage, setStorage] = useState({ persisted: false, usage: 0, quota: 0 });
   const assetInput = useRef<HTMLInputElement>(null);
+  const directImageInput = useRef<HTMLInputElement>(null);
   const backgroundInput = useRef<HTMLInputElement>(null);
   const htmlInput = useRef<HTMLInputElement>(null);
   const psdInput = useRef<HTMLInputElement>(null);
@@ -217,10 +217,14 @@ function Studio() {
         <div className="brand"><span className="brand-mark">AP</span><span>ARCHIPANEL <b>STUDIO</b></span></div>
         <div className="project-title"><input aria-label="프로젝트 이름" value={project!.name} onChange={(e) => state.commit((draft) => { draft.name = e.target.value; })} /><span className={state.dirty ? "save-dot dirty" : "save-dot"}>{state.dirty ? "저장 중" : "로컬 저장됨"}</span></div>
         <div className="top-actions">
+          <button onClick={() => directImageInput.current?.click()}><ImagePlus size={16}/> 이미지 추가</button>
+          <input ref={directImageInput} hidden aria-label="기본 이미지 추가" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { void importAsset(e.target.files?.[0]); e.target.value=""; }} />
+          <button onClick={() => void packageProject(project!).then(() => setNotice("작업 파일 다운로드를 요청했습니다.")).catch(reason => setNotice(String(reason)))}><Archive size={16}/> 작업 파일 저장</button>
+          <button title="현재 보드의 화면 해상도 이미지. 인쇄용 출력은 내보내기를 이용하세요." onClick={() => void downloadCanvasPreview(project!.name).then(() => setNotice("화면 PNG 다운로드를 요청했습니다. 인쇄용 해상도가 아닙니다.")).catch(reason => setNotice(String(reason)))}>미리보기 PNG</button>
           <button title="실행 취소" disabled={!state.past.length} onClick={state.undo}><Undo2 size={16} /></button>
           <button title="다시 실행" disabled={!state.future.length} onClick={state.redo}><Redo2 size={16} /></button>
           <span className="divider" />
-          <button className="demo-top-button" title="첨부 패널 분해 예시 열기" onClick={() => void openDemo()}><LayoutPanelTop size={16} /> 분해 예시</button>
+          <button className="demo-top-button" disabled={STATIC_MODE} title="첨부 패널 분해 예시 열기 · 서버 필요" onClick={() => void openDemo()}><LayoutPanelTop size={16} /> 분해 예시</button>
           <button className={project!.critiqueSettings.enabled?"critique-top-button active":"critique-top-button"} title="패널 위계·밀도·예상 시선 진단" onClick={()=>updateCritiqueSettings({enabled:!project!.critiqueSettings.enabled})}><ScanSearch size={16}/> 크리틱 <small>{project!.critiqueSettings.enabled?(critiqueBusy?"…":Math.round(critiqueResult?.overallScore??0)):"OFF"}</small></button>
           <button className="document-button" title="보드 크기와 DPI" onClick={() => setDocumentOpen(true)}><Settings2 size={16} /> 문서 설정 <small>{board.widthMm}×{board.heightMm} · {board.printProfile.targetDpi}dpi</small></button>
           <button title="축소" onClick={() => state.setZoom(zoom - 0.1)}><ZoomOut size={16} /></button><span className="zoom-label">{Math.round(zoom * 100)}%</span><button title="확대" onClick={() => state.setZoom(zoom + 0.1)}><ZoomIn size={16} /></button>
@@ -230,11 +234,11 @@ function Studio() {
       </header>
       {state.transformMode && <TransformBar selected={selected} />}
       <aside className="toolbar" aria-label="편집 도구">
-        {TOOL_ITEMS.map((item) => <button key={item.id} className={tool === item.id ? "active" : ""} title={`${item.label} (${item.key})`} onClick={() => item.id === "image" ? assetInput.current?.click() : state.setTool(item.id)}><item.icon size={19} /><span>{item.key}</span></button>)}
+        {TOOL_ITEMS.map((item) => <button key={item.id} className={tool === item.id ? "active" : ""} title={`${item.label} (${item.key})`} onClick={() => item.id === "image" ? (STATIC_MODE ? directImageInput : assetInput).current?.click() : state.setTool(item.id)}><item.icon size={19} /><span>{item.key}</span></button>)}
         <span className="tool-divider" />
         <button title="배경 패널 불러오기" onClick={() => backgroundInput.current?.click()}><LayoutPanelTop size={19} /><span>BG</span></button>
         <button title="HTML 패널과 연결 자산 가져오기" onClick={() => htmlInput.current?.click()}><FileCode2 size={19} /><span>HTML</span></button>
-        <button title="PSD/PSB 레이어 연결 가져오기" onClick={() => psdInput.current?.click()}><Layers3 size={19} /><span>PSD</span></button>
+        <button disabled={STATIC_MODE} title="PSD/PSB 레이어 연결 가져오기 · 서버 필요" onClick={() => psdInput.current?.click()}><Layers3 size={19} /><span>PSD</span></button>
         <input ref={assetInput} hidden multiple type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={(e) => { setImportFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
         <input ref={backgroundInput} hidden type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={(e) => void importAsset(e.target.files?.[0], true)} />
         <input ref={htmlInput} hidden multiple type="file" accept=".html,.htm,image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => { setHtmlFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
@@ -246,11 +250,11 @@ function Studio() {
           <button className={tab === "properties" ? "active" : ""} onClick={() => setTab("properties")}><Settings2 size={14} /> 속성</button>
           <button className={tab === "layers" ? "active" : ""} onClick={() => setTab("layers")}><Layers3 size={14} /> 레이어</button>
           <button className={tab === "assets" ? "active" : ""} onClick={() => setTab("assets")}><FileImage size={14} /> 자산</button>
-          <button className={tab === "flow" ? "active" : ""} onClick={() => setTab("flow")}><SparklesIcon /> 지능형</button>
+          <button className={tab === "flow" ? "active" : ""} disabled={STATIC_MODE} title={STATIC_MODE ? "서버 연결 필요" : undefined} onClick={() => setTab("flow")}><SparklesIcon /> 지능형</button>
         </div>
         {tab === "properties" && <PropertiesPanel board={board} selected={selected} />}
         {tab === "layers" && <LayersPanel board={board} />}
-        {tab === "assets" && <AssetsPanel onAdd={() => assetInput.current?.click()} onFont={() => fontInput.current?.click()} onRelink={(sourceId)=>{setRelinkSourceId(sourceId);relinkInput.current?.click();}} />}
+        {tab === "assets" && <AssetsPanel onAdd={() => (STATIC_MODE ? directImageInput : assetInput).current?.click()} onFont={() => STATIC_MODE ? setNotice("글꼴 검사에는 서버가 필요합니다. 기본 글꼴로 계속 편집할 수 있습니다.") : fontInput.current?.click()} onRelink={(sourceId)=>{setRelinkSourceId(sourceId);relinkInput.current?.click();}} />}
         {tab === "flow" && <IntelligencePanel setNotice={setNotice} />}
         <input ref={fontInput} hidden type="file" accept=".ttf,.otf,.ttc,.woff,.woff2" onChange={(e) => void importFont(e.target.files?.[0])} />
         <input ref={relinkInput} hidden type="file" accept=".psd,.psb,image/vnd.adobe.photoshop" onChange={e=>{setRelinkFile(e.target.files?.[0]);e.target.value="";}}/>
@@ -324,7 +328,7 @@ function ImportAssistant({ files, onClose, onDone }: { files: File[]; onClose: (
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); setBusy(false); }
   };
   const total = analyses.reduce((sum, item) => sum + item.analysis.candidateCount, 0); const chosen = Object.values(selected).filter(Boolean).length;
-  return <div className="modal-backdrop"><div className="modal import-assistant"><header><div><span className="modal-index">IMPORT / OBJECT LINK</span><h2>PDF·이미지 객체 연결</h2></div><button onClick={onClose}>닫기</button></header>{busy && !analyses.length ? <div className="import-loading"><RefreshCw size={22}/><b>페이지와 여백 구조 분석 중</b><span>원본은 브라우저 밖으로 전송하지 않습니다.</span></div> : <><div className="import-summary"><div><span>FILES</span><b>{analyses.length}</b></div><div><span>CANDIDATES</span><b>{total}</b></div><div><span>SELECTED</span><b>{chosen}</b></div></div><div className="import-pages">{analyses.map(({ file, analysis }) => <section key={`${file.name}-${file.size}`}><div className="import-file-head"><b>{file.name}</b><span>{analysis.pageCount} page · {analysis.candidateCount} objects</span></div>{analysis.pages.map((page) => <article className="import-page" key={page.pageIndex}><div className="import-map"><img src={page.thumbnailDataUrl} alt={`${file.name} ${page.pageIndex + 1}페이지`} />{page.candidates.map((candidate) => <button aria-label={candidate.title} title={`${candidate.title} · ${Math.round(candidate.confidence * 100)}%`} className={selected[candidate.id] ? "selected" : ""} key={candidate.id} style={{ left: `${candidate.bboxNormalized.x * 100}%`, top: `${candidate.bboxNormalized.y * 100}%`, width: `${candidate.bboxNormalized.w * 100}%`, height: `${candidate.bboxNormalized.h * 100}%` }} onClick={() => setSelected((current) => ({ ...current, [candidate.id]: !current[candidate.id] }))}><span>{candidate.label}</span></button>)}</div><div className="import-candidate-list"><b>PAGE {page.pageIndex + 1}</b>{page.candidates.map((candidate) => <label key={candidate.id} className={selected[candidate.id] ? "active" : ""}><input type="checkbox" checked={Boolean(selected[candidate.id])} onChange={() => setSelected((current) => ({ ...current, [candidate.id]: !current[candidate.id] }))}/><span><strong>{candidate.title}</strong><small>{candidate.label} · {Math.round(candidate.confidence * 100)}% · {candidate.status === "needs_review" ? "검토 필요" : "제안"}</small></span></label>)}</div></article>)}</section>)}</div><div className="import-options"><label><input type="checkbox" checked={matchBoard} onChange={(event) => setMatchBoard(event.target.checked)}/><span><b>빈 보드 방향 자동 맞춤</b><small>첫 페이지의 가로·세로 방향을 사용합니다.</small></span></label><label><input type="checkbox" checked={approve} onChange={(event) => setApprove(event.target.checked)}/><span><b>선택 객체의 라벨 승인</b><small>이 선택이 사용자 승인으로 기록됩니다.</small></span></label><label><input type="checkbox" checked={autoRecommend} disabled={!approve} onChange={(event) => setAutoRecommend(event.target.checked)}/><span><b>연결 후 3안 자동 추천</b><small>Narrative · Hero · Technical</small></span></label></div><div className="modal-actions"><button onClick={onClose}>취소</button><button className="primary" disabled={busy || !chosen} onClick={() => void apply()}>{busy ? "구성 중…" : `${chosen}개 객체 연결`}</button></div></>}{error && <p className="import-error">{error}</p>}</div></div>;
+  return <div className="modal-backdrop"><div className="modal import-assistant"><header><div><span className="modal-index">IMPORT / OBJECT LINK</span><h2>PDF·이미지 객체 연결</h2></div><button onClick={onClose}>닫기</button></header>{busy && !analyses.length ? <div className="import-loading"><RefreshCw size={22}/><b>페이지와 여백 구조 분석 중</b><span>분석을 위해 선택한 파일을 연결된 서버로 전송합니다.</span></div> : <><div className="import-summary"><div><span>FILES</span><b>{analyses.length}</b></div><div><span>CANDIDATES</span><b>{total}</b></div><div><span>SELECTED</span><b>{chosen}</b></div></div><div className="import-pages">{analyses.map(({ file, analysis }) => <section key={`${file.name}-${file.size}`}><div className="import-file-head"><b>{file.name}</b><span>{analysis.pageCount} page · {analysis.candidateCount} objects</span></div>{analysis.pages.map((page) => <article className="import-page" key={page.pageIndex}><div className="import-map"><img src={page.thumbnailDataUrl} alt={`${file.name} ${page.pageIndex + 1}페이지`} />{page.candidates.map((candidate) => <button aria-label={candidate.title} title={`${candidate.title} · ${Math.round(candidate.confidence * 100)}%`} className={selected[candidate.id] ? "selected" : ""} key={candidate.id} style={{ left: `${candidate.bboxNormalized.x * 100}%`, top: `${candidate.bboxNormalized.y * 100}%`, width: `${candidate.bboxNormalized.w * 100}%`, height: `${candidate.bboxNormalized.h * 100}%` }} onClick={() => setSelected((current) => ({ ...current, [candidate.id]: !current[candidate.id] }))}><span>{candidate.label}</span></button>)}</div><div className="import-candidate-list"><b>PAGE {page.pageIndex + 1}</b>{page.candidates.map((candidate) => <label key={candidate.id} className={selected[candidate.id] ? "active" : ""}><input type="checkbox" checked={Boolean(selected[candidate.id])} onChange={() => setSelected((current) => ({ ...current, [candidate.id]: !current[candidate.id] }))}/><span><strong>{candidate.title}</strong><small>{candidate.label} · {Math.round(candidate.confidence * 100)}% · {candidate.status === "needs_review" ? "검토 필요" : "제안"}</small></span></label>)}</div></article>)}</section>)}</div><div className="import-options"><label><input type="checkbox" checked={matchBoard} onChange={(event) => setMatchBoard(event.target.checked)}/><span><b>빈 보드 방향 자동 맞춤</b><small>첫 페이지의 가로·세로 방향을 사용합니다.</small></span></label><label><input type="checkbox" checked={approve} onChange={(event) => setApprove(event.target.checked)}/><span><b>선택 객체의 라벨 승인</b><small>이 선택이 사용자 승인으로 기록됩니다.</small></span></label><label><input type="checkbox" checked={autoRecommend} disabled={!approve} onChange={(event) => setAutoRecommend(event.target.checked)}/><span><b>연결 후 3안 자동 추천</b><small>Narrative · Hero · Technical</small></span></label></div><div className="modal-actions"><button onClick={onClose}>취소</button><button className="primary" disabled={busy || !chosen} onClick={() => void apply()}>{busy ? "구성 중…" : `${chosen}개 객체 연결`}</button></div></>}{error && <p className="import-error">{error}</p>}</div></div>;
 }
 
 function HtmlImportAssistant({ files, onClose, onDone }: { files: File[]; onClose: () => void; onDone: (message: string) => void }) {
@@ -446,7 +450,7 @@ function PreflightModal({ issues, onClose }: { issues: ReturnType<typeof runPref
 function ExportModal({ errors, onClose, setNotice }: { errors: number; onClose: () => void; setNotice: (value: string) => void }) {
   const project = useStudio((s) => s.project)!; const [busy, setBusy] = useState(""); const [dpi, setDpi] = useState(project.boards[0].printProfile.targetDpi); const [reviewed, setReviewed] = useState(false); const [portablePsd,setPortablePsd]=useState(false);
   const run = async (kind: "project" | "pdf" | "png" | "jpg") => { if (errors && kind !== "project") return; setBusy(kind); try { if (kind === "project") await packageProject(project,portablePsd); else if (kind === "pdf") await downloadFromEndpoint(project, "/api/export/pdf", `${safeName(project.name)}.pdf`, { boardIds: project.boards.map((b) => b.id), includeBleed: true, cropMarks: false }); else await downloadFromEndpoint(project, "/api/export/raster", `${safeName(project.name)}-${project.boards[0].name}.${kind}`, { boardId: project.boards[0].id, format: kind, dpi, quality: 92, includeBleed: false }); setNotice(`${kind.toUpperCase()} 내보내기가 완료되었습니다.`); onClose(); } catch (reason) { setNotice(reason instanceof Error ? reason.message : "내보내기 실패"); } finally { setBusy(""); } };
-  return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal export-modal" onMouseDown={(e) => e.stopPropagation()}><header><div><span className="modal-index">EXPORT / 02</span><h2>인쇄 파일 내보내기</h2></div><button onClick={onClose}>닫기</button></header>{errors ? <div className="export-blocked"><ShieldCheck size={22} /><div><strong>PDF·이미지 출력이 잠겼습니다.</strong><p>인쇄 검사의 차단 오류 {errors}개를 먼저 해결하세요. 프로젝트 원본은 계속 저장할 수 있습니다.</p></div></div> : <label className="review-check"><input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} /><span>RGB 출력과 경고 항목을 검토했습니다.</span></label>}<div className="export-grid"><button onClick={() => void run("project")}><Archive /><strong>.ARCHIPANEL</strong><span>{portablePsd?"PSD/PSB 포함 ZIP64":"PSD/PSB 링크 모드"}</span></button><button disabled={Boolean(errors) || !reviewed} onClick={() => void run("pdf")}><FileImage /><strong>PRINT PDF</strong><span>벡터 텍스트 · 실제 mm</span></button><button disabled={Boolean(errors) || !reviewed} onClick={() => void run("png")}><Download /><strong>PNG</strong><span>무손실 래스터</span></button><button disabled={Boolean(errors) || !reviewed} onClick={() => void run("jpg")}><Download /><strong>JPG</strong><span>공유용 고화질</span></button></div>{project.psdSources.length>0&&<label className="review-check"><input type="checkbox" checked={portablePsd} onChange={e=>setPortablePsd(e.target.checked)}/><span>portable ZIP64에 원본 PSD/PSB 포함</span></label>}<label className="dpi-field"><span>래스터 해상도</span><select value={dpi} onChange={(e) => setDpi(Number(e.target.value))}><option value={150}>150 dpi</option><option value={300}>300 dpi</option><option value={600}>600 dpi</option></select></label>{busy && <div className="export-progress">{busy.toUpperCase()} 생성 중… 대형 패널은 시간이 걸릴 수 있습니다.</div>}</div></div>;
+  return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal export-modal" onMouseDown={(e) => e.stopPropagation()}><header><div><span className="modal-index">EXPORT / 02</span><h2>인쇄 파일 내보내기</h2></div><button onClick={onClose}>닫기</button></header>{errors ? <div className="export-blocked"><ShieldCheck size={22} /><div><strong>PDF·이미지 출력이 잠겼습니다.</strong><p>인쇄 검사의 차단 오류 {errors}개를 먼저 해결하세요. 프로젝트 원본은 계속 저장할 수 있습니다.</p></div></div> : <label className="review-check"><input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} /><span>RGB 출력과 경고 항목을 검토했습니다.</span></label>}<p>{STATIC_MODE ? "현재 웹 버전은 작업 파일 저장과 상단의 미리보기 PNG를 지원합니다. 인쇄용 PDF·고해상도 출력은 서버 실행이 필요합니다." : "인쇄 출력 시 자산을 연결된 서버에 전송합니다."}</p><div className="export-grid"><button onClick={() => void run("project")}><Archive /><strong>.ARCHIPANEL</strong><span>{portablePsd?"PSD/PSB 포함 ZIP64":"PSD/PSB 링크 모드"}</span></button><button disabled={STATIC_MODE || Boolean(errors) || !reviewed} onClick={() => void run("pdf")}><FileImage /><strong>PRINT PDF</strong><span>벡터 텍스트 · 실제 mm</span></button><button disabled={STATIC_MODE || Boolean(errors) || !reviewed} onClick={() => void run("png")}><Download /><strong>PNG</strong><span>무손실 래스터</span></button><button disabled={STATIC_MODE || Boolean(errors) || !reviewed} onClick={() => void run("jpg")}><Download /><strong>JPG</strong><span>공유용 고화질</span></button></div>{project.psdSources.length>0&&<label className="review-check"><input type="checkbox" checked={portablePsd} onChange={e=>setPortablePsd(e.target.checked)}/><span>portable ZIP64에 원본 PSD/PSB 포함</span></label>}<label className="dpi-field"><span>래스터 해상도</span><select value={dpi} onChange={(e) => setDpi(Number(e.target.value))}><option value={150}>150 dpi</option><option value={300}>300 dpi</option><option value={600}>600 dpi</option></select></label>{busy && <div className="export-progress">{busy.toUpperCase()} 생성 중… 대형 패널은 시간이 걸릴 수 있습니다.</div>}</div></div>;
 }
 
 function SparklesIcon() { return <span aria-hidden="true" style={{ color: "#c85d32", fontSize: 12 }}>✦</span>; }

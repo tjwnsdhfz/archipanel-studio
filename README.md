@@ -248,3 +248,7 @@ Studio는 레거시 승인 상태나 PPTX export 조건을 변경하지 않습�
 ## Photoshop 대비 범위
 
 ArchiPanel은 Photoshop 복제품이 아니라 건축 패널 조판에 집중합니다. 현재 비교와 의도적인 제외 범위는 [`docs/PHOTOSHOP_FEATURE_AUDIT.md`](docs/PHOTOSHOP_FEATURE_AUDIT.md)에 정리되어 있습니다.
+
+## 2026-09-22 품질 점검
+
+변경 내용, 재현한 문제, 검증 범위와 남은 한계: [품질 점검 기록](docs/QUALITY_AUDIT_20260922.md).
