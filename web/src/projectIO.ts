@@ -58,6 +58,8 @@ async function projectForm(project: PanelProjectV1) {
     if (row) {
       form.append(`asset__${asset.id}`, row.blob, asset.name);
       for (const [index, preview] of (row.pageThumbnails ?? (row.thumbnail ? [row.thumbnail] : [])).entries()) form.append(`preview__${asset.id}__${index}`, preview, `${asset.id}-${index}.jpg`);
+    } else {
+      throw new Error(`원본 파일을 찾을 수 없습니다: ${asset.name}. 원본을 다시 연결한 뒤 내보내세요.`);
     }
   }
   for (const font of project.fonts) {
@@ -94,7 +96,7 @@ export async function openPackage(file: File): Promise<PanelProjectV1> {
   if (!manifestEntry) throw new Error("manifest.json이 없는 프로젝트입니다.");
   const rawProject = JSON.parse(await manifestEntry.async("string")) as PanelProjectV1;
   const version = (rawProject as unknown as { schemaVersion?: string }).schemaVersion;
-  if (!version || !["1.0", "1.1", "1.2", "1.3"].includes(version)) throw new Error(`지원하지 않는 스키마 ${version ?? "없음"}`);
+  if (!version || !["1.0", "1.1", "1.2", "1.3", "1.4"].includes(version)) throw new Error(`지원하지 않는 스키마 ${version ?? "없음"}`);
   const project = migrateProject(rawProject);
   for (const asset of project.assets) {
     const path = asset.archivePath ?? Object.keys(zip.files).find((key) => key.startsWith(`assets/${asset.id}.`));

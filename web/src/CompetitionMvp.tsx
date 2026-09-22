@@ -18,10 +18,10 @@ const steps: { id: DemoStep; number: string; label: string; detail: string }[] =
   { id: "deck", number: "04", label: "설계설명서", detail: "근거 연결 PPTX" },
 ];
 
-const layoutCopy: Record<LayoutKind, { index: string; title: string; english: string; score: string; note: string }> = {
-  narrative: { index: "A", title: "서사 그리드", english: "NARRATIVE GRID", score: "92", note: "맥락 → 개념 → 도면 → 경험" },
-  hero: { index: "B", title: "히어로 비주얼", english: "HERO VISUAL", score: "95", note: "대표 렌더와 핵심 개념 강조" },
-  technical: { index: "C", title: "테크니컬 매트릭스", english: "TECHNICAL MATRIX", score: "89", note: "평면 · 단면 · 입면 비교" },
+const layoutCopy: Record<LayoutKind, { index: string; title: string; english: string; note: string }> = {
+  narrative: { index: "A", title: "서사 그리드", english: "NARRATIVE GRID", note: "맥락 → 개념 → 도면 → 경험" },
+  hero: { index: "B", title: "히어로 비주얼", english: "HERO VISUAL", note: "대표 렌더와 핵심 개념 강조" },
+  technical: { index: "C", title: "테크니컬 매트릭스", english: "TECHNICAL MATRIX", note: "평면 · 단면 · 입면 비교" },
 };
 
 export function CompetitionMvp({ onOpenStudio }: { onOpenStudio: () => void }) {
@@ -49,7 +49,7 @@ export function CompetitionMvp({ onOpenStudio }: { onOpenStudio: () => void }) {
           <span>ARCHIPANEL <b>STUDIO</b></span>
         </a>
         <nav aria-label="주요 메뉴">
-          <a href="#problem">문제</a><a href="#mvp-demo">시연</a><a href="#impact">성과</a>
+          <a href="#problem">문제</a><a href="#mvp-demo">시연</a><a href="#impact">출력</a>
         </nav>
         <button className="pitch-nav-action" onClick={onOpenStudio}>편집기 열기 <ArrowRight size={14} /></button>
       </header>
@@ -57,16 +57,16 @@ export function CompetitionMvp({ onOpenStudio }: { onOpenStudio: () => void }) {
       <section className="pitch-hero" id="top">
         <div className="pitch-grid" aria-hidden="true" />
         <div className="pitch-hero-copy">
-          <p className="pitch-kicker"><span>2026 STARTUP MVP</span> ARCHITECTURE COMMUNICATION OS</p>
+          <p className="pitch-kicker"><span>ARCHIPANEL STUDIO</span> 건축 패널 편집</p>
           <h1>패널 하나로,<br /><em>설계설명까지.</em></h1>
           <p className="pitch-lead">건축 패널의 도면·렌더·문장을 근거 단위로 정리하고,<br className="desktop-only" /> 격자가 맞는 배치와 편집 가능한 발표자료를 한 번에 만듭니다.</p>
           <div className="pitch-hero-actions">
-            <button className="pitch-primary" onClick={startDemo}><Play size={15} fill="currentColor" /> 30초 MVP 시연</button>
+            <button className="pitch-primary" onClick={startDemo}><Play size={15} fill="currentColor" /> 샘플 작업 흐름 보기</button>
             <button className="pitch-secondary" onClick={onOpenStudio}><MousePointer2 size={15} /> 내가 직접 편집</button>
           </div>
           <div className="pitch-proof">
             <span><b>03</b> 레이아웃 동시 제안</span>
-            <span><b>100%</b> 원본 요소 역추적</span>
+            <span><b>출처</b> 요소별 연결 확인</span>
             <span><b>LOCAL</b> 로그인 없이 저장</span>
           </div>
         </div>
@@ -82,7 +82,7 @@ export function CompetitionMvp({ onOpenStudio }: { onOpenStudio: () => void }) {
                 <span className="selection selection-b"><b>CONCEPT</b></span>
                 <span className="selection selection-c"><b>FLOOR PLAN</b></span>
               </div>
-              <div className="window-inspector"><small>SELECTED BLOCK</small><b>대표 렌더</b><hr /><label>X <span>0.0 mm</span></label><label>Y <span>0.0 mm</span></label><label>W <span>594.0 mm</span></label><hr /><em>CONFIDENCE 0.96</em></div>
+              <div className="window-inspector"><small>SELECTED BLOCK</small><b>대표 렌더</b><hr /><label>X <span>0.0 mm</span></label><label>Y <span>0.0 mm</span></label><label>W <span>594.0 mm</span></label><hr /><em>배치 예시 · 분석값 아님</em></div>
             </div>
           </div>
           <div className="hero-stamp"><Sparkles size={19} /><b>AUTO LAYOUT</b><span>3 PROPOSALS READY</span></div>
@@ -102,8 +102,8 @@ export function CompetitionMvp({ onOpenStudio }: { onOpenStudio: () => void }) {
       </section>
 
       <section className="pitch-demo" id="mvp-demo">
-        <div className="section-index light">02 / INTERACTIVE MVP</div>
-        <div className="demo-heading"><div><p>JURY MODE</p><h2>클릭해서 확인하는<br />패널 자동 구성</h2></div><p className="demo-status"><i className={playing ? "running" : ""} /> {playing ? "DEMO RUNNING" : `${activeStep.number} / ${activeStep.label}`}</p></div>
+        <div className="section-index light">02 / SAMPLE WORKFLOW</div>
+        <div className="demo-heading"><div><p>샘플 화면 · 실제 파일 처리 아님</p><h2>클릭해서 확인하는<br />패널 자동 구성</h2></div><p className="demo-status"><i className={playing ? "running" : ""} /> {playing ? "DEMO RUNNING" : `${activeStep.number} / ${activeStep.label}`}</p></div>
         <div className="demo-shell">
           <div className="demo-steps">
             {steps.map((item) => <button key={item.id} className={step === item.id ? "active" : ""} onClick={() => setStep(item.id)}><span>{item.number}</span><b>{item.label}</b><small>{item.detail}</small></button>)}
@@ -125,20 +125,20 @@ export function CompetitionMvp({ onOpenStudio }: { onOpenStudio: () => void }) {
       <CritiquePitchDemo />
 
       <section className="pitch-impact" id="impact">
-        <div className="section-index">03 / IMPACT</div>
+        <div className="section-index">03 / OUTPUT</div>
         <div className="impact-grid">
           <div><p>ONE SOURCE</p><h2>패널을 최종 산출물이 아닌<br /><em>설계 데이터베이스</em>로.</h2></div>
-          <div className="impact-metrics"><article><b>3×</b><span>패널 레이아웃 즉시 비교</span></article><article><b>24P</b><span>A3 설계설명서 구조화</span></article><article><b>0</b><span>근거 없는 수치 자동 생성</span></article></div>
+          <div className="impact-metrics"><article><b>3안</b><span>레이아웃 후보 비교</span></article><article><b>A3</b><span>설계설명서 구성</span></article><article><b>검토</b><span>근거와 문장 확인 후 출력</span></article></div>
         </div>
         <div className="pitch-final">
           <div><WandSparkles size={26} /><span>ARCHIPANEL STUDIO MVP</span></div>
           <h2>당신의 설계를<br />더 잘 <em>설명하는 방법.</em></h2>
           <p>샘플 데이터로 시연하거나, 로컬 편집기에서 직접 패널을 구성해 보세요.</p>
-          <button className="pitch-primary" onClick={onOpenStudio}>무료 MVP 열기 <ArrowRight size={15} /></button>
+          <button className="pitch-primary" onClick={onOpenStudio}>로컬 편집기 열기 <ArrowRight size={15} /></button>
         </div>
       </section>
 
-      <footer className="pitch-footer"><span>ARCHIPANEL STUDIO / MVP 1.5</span><span>LOCAL-FIRST · SOURCE-TRUE · RGB</span><span>© 2026</span></footer>
+      <footer className="pitch-footer"><span>ARCHIPANEL STUDIO / MVP 1.5</span><span>브라우저 저장 · 원본 연결 · RGB 출력</span><span>© 2026</span></footer>
     </main>
   );
 }
@@ -152,15 +152,15 @@ function BlocksStage() {
     [1, 1, 30, 93, "RENDER"], [33, 3, 16, 28, "CONTEXT"], [50, 3, 22, 28, "CONCEPT"], [74, 3, 24, 28, "DETAIL"],
     [33, 34, 20, 28, "SITE PLAN"], [55, 34, 43, 28, "FLOOR PLAN"], [33, 65, 65, 30, "SECTION"],
   ];
-  return <div className="blocks-stage"><img src="/showcase/panel-demo.webp" alt="콘텐츠 분해 예시" />{blocks.map(([x, y, w, h, label]) => <i key={String(label)} style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%` }}><b>{label}</b></i>)}<div className="block-count"><b>14</b><span>EDITABLE<br />BLOCKS</span></div></div>;
+  return <div className="blocks-stage"><img src="/showcase/panel-demo.webp" alt="콘텐츠 분해 예시" />{blocks.map(([x, y, w, h, label]) => <i key={String(label)} style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%` }}><b>{label}</b></i>)}<div className="block-count"><b>{blocks.length}</b><span>샘플 영역<br />자동 분석 아님</span></div></div>;
 }
 
 function LayoutsStage({ selected, onSelect }: { selected: LayoutKind; onSelect: (layout: LayoutKind) => void }) {
-  return <div className="layouts-stage">{(Object.keys(layoutCopy) as LayoutKind[]).map((kind) => { const item = layoutCopy[kind]; return <button key={kind} className={selected === kind ? "selected" : ""} onClick={() => onSelect(kind)}><span className="layout-score">{item.score}<small>/100</small></span><div className={`mini-board ${kind}`}><i className="m-hero" /><i className="m-a" /><i className="m-b" /><i className="m-c" /><i className="m-d" /></div><span className="layout-index">{item.index}</span><b>{item.title}</b><small>{item.english}</small><p>{item.note}</p>{selected === kind && <em><Check /> SELECTED</em>}</button>; })}</div>;
+  return <div className="layouts-stage">{(Object.keys(layoutCopy) as LayoutKind[]).map((kind) => { const item = layoutCopy[kind]; return <button key={kind} className={selected === kind ? "selected" : ""} onClick={() => onSelect(kind)}><span className="layout-score">{item.index}<small>배치 예시</small></span><div className={`mini-board ${kind}`}><i className="m-hero" /><i className="m-a" /><i className="m-b" /><i className="m-c" /><i className="m-d" /></div><span className="layout-index">{item.index}</span><b>{item.title}</b><small>{item.english}</small><p>{item.note}</p>{selected === kind && <em><Check /> SELECTED</em>}</button>; })}</div>;
 }
 
 function DeckStage() {
-  return <div className="deck-stage"><div className="deck-pages"><article className="deck-cover"><span>01</span><img src="/showcase/panel-demo.webp" alt="설계설명서 표지 예시" /><b>LEARNING<br />IN THE DEEP</b></article><article><span>05</span><small>CONCEPT</small><b>Learning<br />Node</b><div className="deck-diagram"><i /><i /><i /><i /></div></article><article><span>11</span><small>SPATIAL EVIDENCE</small><b>Floor Plan</b><div className="deck-plan" /></article></div><div className="deck-meta"><p><b>24</b> PAGES</p><p><b>100%</b> SOURCE LINKED</p><p><b>PPTX</b> EDITABLE TEXT</p></div></div>;
+  return <div className="deck-stage"><div className="deck-pages"><article className="deck-cover"><span>01</span><img src="/showcase/panel-demo.webp" alt="설계설명서 표지 예시" /><b>LEARNING<br />IN THE DEEP</b></article><article><span>05</span><small>CONCEPT</small><b>Learning<br />Node</b><div className="deck-diagram"><i /><i /><i /><i /></div></article><article><span>11</span><small>SPATIAL EVIDENCE</small><b>Floor Plan</b><div className="deck-plan" /></article></div><div className="deck-meta"><p><b>3</b> 미리보기 예시</p><p><b>출처</b> 검토 후 연결</p><p><b>PPTX</b> 로컬 편집기에서 출력</p></div></div>;
 }
 
 function CritiquePitchDemo(){
