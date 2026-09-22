@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { exportBoardPng } from "./boardExport";
 import { db } from "./db";
 import type { AssetRef, PanelProjectV1, ReferenceLayoutV1 } from "./types";
 import { migrateProject } from "./types";
@@ -132,9 +133,7 @@ export async function buildLocalPackage(project: PanelProjectV1): Promise<Blob> 
 }
 
 export async function downloadCanvasPreview(name: string) {
-  const canvas = document.querySelector<HTMLCanvasElement>("canvas.lower-canvas");
-  if (!canvas) throw new Error("패널을 먼저 열어 주세요.");
-  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error("미리보기를 생성하지 못했습니다.")), "image/png"));
+  const blob = await exportBoardPng();
   const url = URL.createObjectURL(blob); const link = document.createElement("a");
   link.href = url; link.download = `${safeName(name)}-preview.png`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);

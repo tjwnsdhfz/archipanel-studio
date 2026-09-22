@@ -19,3 +19,7 @@ Existing Render Hobby workspace: no card, current charges $0; included monthly 5
 
 ## Recovery and next evidence
 Rollback the merge via a revert PR or redeploy the prior successful Render build; preserve browser databases and downloaded archives. Hypothesis: architecture students may pay for consistent reusable templates and print checks. This release has no customer/payment evidence; test five real submissions and compare time/errors before proposing a price.
+
+## 2,400px share PNG
+The share export renders the current Fabric board at a fixed 2,400px long edge (at most 5.76 megapixels), independent of phone/desktop viewport and device pixel ratio. Original image blobs are used. Guides and selection controls are omitted. Missing or unreadable images block export; incomplete output is not silently downloaded. This remains an RGB sharing image, not a specified-DPI print deliverable. Verified local mobile output: 1699 × 2400 pixels. Unit suite now has 37 passing tests.
+

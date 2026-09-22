@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ActiveSelection, Canvas, Ellipse, FabricImage, IText, Line, Rect, type FabricObject } from "fabric";
 import { db } from "./db";
+import { registerBoardExporter, shareMultiplier } from "./boardExport";
 import { composeCrop, cropFrame, FULL_CROP, normalizedDrag, type NormalizedRect } from "./crop";
 import { useStudio } from "./store";
 import type { CritiqueResultV1, CritiqueSettingsV1, ImageElement, MaskOperation, PanelElement, PdfElement, PsdLayerElement, ShapeElement, TextElement } from "./types";
@@ -49,6 +50,8 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
     });
     fabricRef.current = canvas;
     const urls: string[] = [];
+    let disposed = false;
+    let incomplete = false;
 
     const addObject = (element: PanelElement, object: TaggedObject) => {
       object.set({
@@ -83,8 +86,9 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
           addObject(element, object);
         } else {
           const row = await db.assets.get(element.type === "psd_layer" ? element.previewAssetId : element.assetId);
-          if (!row) continue;
-          const blob = (element.type === "pdf" ? row.pageThumbnails?.[element.pageIndex] : undefined) ?? row.thumbnail ?? row.blob;
+          if (disposed) return;
+          if (!row) { incomplete = true; continue; }
+          const blob = element.type === "image" ? row.blob : (element.type === "pdf" ? row.pageThumbnails?.[element.pageIndex] : undefined) ?? row.thumbnail ?? row.blob;
           if (element.type === "pdf" && !row.thumbnail) {
             addObject(element, new Rect({ width: element.widthMm * scale, height: element.heightMm * scale, fill: "#e9e4d9", stroke: "#7f817b", strokeDashArray: [5, 4] }));
             continue;
@@ -92,12 +96,13 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
           const url = URL.createObjectURL(blob); urls.push(url);
           try {
             const image = await FabricImage.fromURL(url);
+            if (disposed) return;
             const crop = element.type === "pdf" ? element.clipNormalized : element.cropNormalized;
             const sourceWidth = Math.max(1, image.width); const sourceHeight = Math.max(1, image.height);
             const croppedWidth = Math.max(1, sourceWidth * crop.w); const croppedHeight = Math.max(1, sourceHeight * crop.h);
             image.set({ cropX: sourceWidth * crop.x, cropY: sourceHeight * crop.y, width: croppedWidth, height: croppedHeight, scaleX: (element.widthMm * scale) / croppedWidth, scaleY: (element.heightMm * scale) / croppedHeight });
             addObject(element, image);
-          } catch { addObject(element, new Rect({ width: element.widthMm * scale, height: element.heightMm * scale, fill: "#d8d1c4", stroke: "#c85d32" })); }
+          } catch { if (disposed) return; incomplete = true; addObject(element, new Rect({ width: element.widthMm * scale, height: element.heightMm * scale, fill: "#d8d1c4", stroke: "#c85d32" })); }
         }
       }
       for (const guide of board.guides) {
@@ -114,7 +119,16 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
       else if (selected.length > 1) canvas.setActiveObject(new ActiveSelection(selected, { canvas }));
       canvas.renderAll();
     };
-    void render();
+    const rendered = render();
+    const unregister = registerBoardExporter(async () => {
+      await rendered;
+      await document.fonts.ready;
+      if (disposed) throw new Error("패널이 변경되었습니다. 다시 내보내 주세요.");
+      if (incomplete) throw new Error("읽을 수 없는 이미지가 있습니다. 원본을 다시 연결한 뒤 내보내 주세요.");
+      const blob = await canvas.toBlob({ format: "png", multiplier: shareMultiplier(canvas.width, canvas.height), enableRetinaScaling: false, filter: (object) => !object.excludeFromExport });
+      if (!blob) throw new Error("PNG를 생성하지 못했습니다. 다시 시도해 주세요.");
+      return blob;
+    });
 
     canvas.on("selection:created", (event) => setSelection(event.selected?.map((o) => (o as TaggedObject).elementId).filter(Boolean) as string[] ?? []));
     canvas.on("selection:updated", (event) => setSelection(event.selected?.map((o) => (o as TaggedObject).elementId).filter(Boolean) as string[] ?? []));
@@ -177,7 +191,7 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
       setTool("select");
     });
 
-    return () => { urls.forEach(URL.revokeObjectURL); canvas.dispose(); if (fabricRef.current === canvas) fabricRef.current = null; };
+    return () => { disposed = true; unregister(); urls.forEach(URL.revokeObjectURL); canvas.dispose(); if (fabricRef.current === canvas) fabricRef.current = null; };
   }, [board?.id, board?.widthMm, board?.heightMm, board?.backgroundColor, board?.elementIds, board?.guides, project?.elements, project?.assets, scale, tool]);
 
   if (!board) return <div className="canvas-empty">보드를 선택하세요.</div>;
