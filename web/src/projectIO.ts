@@ -21,6 +21,15 @@ export type ImportAnalysis = {
 };
 
 export async function inspectFile(file: File): Promise<InspectResult> {
+  if (["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    if (file.size > 25 * 1024 * 1024) throw new Error("이미지는 25MB 이하로 준비해 주세요.");
+    let bitmap: ImageBitmap;
+    try { bitmap = await createImageBitmap(file); } catch { throw new Error("이미지를 읽지 못했습니다. PNG·JPG·WebP 파일을 확인해 주세요."); }
+    try {
+      if (bitmap.width * bitmap.height > 40_000_000) throw new Error("이미지는 4천만 픽셀 이하로 줄여 주세요.");
+      return { mime: file.type, widthPx: bitmap.width, heightPx: bitmap.height, review: [] };
+    } finally { bitmap.close(); }
+  }
   const form = new FormData();
   form.append("file", file);
   const response = await fetch("/api/import/inspect", { method: "POST", body: form });
@@ -87,17 +96,64 @@ export async function downloadFromEndpoint(project: PanelProjectV1, endpoint: st
 }
 
 export async function packageProject(project: PanelProjectV1, portablePsd = false) {
+  if (!project.psdSources.length) {
+    const blob = await buildLocalPackage(project);
+    const url = URL.createObjectURL(blob); const link = document.createElement("a");
+    link.href = url; link.download = `${safeName(project.name)}.archipanel`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000); return;
+  }
   return downloadFromEndpoint(project, "/api/project/package", `${safeName(project.name)}.archipanel`, { portablePsd });
 }
 
+export async function buildLocalPackage(project: PanelProjectV1): Promise<Blob> {
+  if (project.psdSources.length) throw new Error("PSD 원본 패키지는 서버 연결이 필요합니다.");
+  const manifest = structuredClone(project); const zip = new JSZip(); let bytes = 0;
+  for (const asset of manifest.assets) {
+    const row = await db.assets.get(asset.id);
+    if (!row) throw new Error(`원본 파일을 찾을 수 없습니다: ${asset.name}`);
+    bytes += row.blob.size;
+    if (bytes > 100 * 1024 * 1024) throw new Error("브라우저 백업은 원본 합계 100MB까지 지원합니다.");
+    asset.archivePath = `assets/${asset.id}.bin`;
+    zip.file(asset.archivePath, await row.blob.arrayBuffer());
+    for (const [i, preview] of (row.pageThumbnails ?? (row.thumbnail ? [row.thumbnail] : [])).entries()) {
+      bytes += preview.size; if (bytes > 100 * 1024 * 1024) throw new Error("미리보기를 포함한 백업이 100MB를 넘습니다.");
+      zip.file(`previews/assets/${asset.id}/${i}.jpg`, await preview.arrayBuffer());
+    }
+  }
+  for (const font of manifest.fonts) {
+    if (font.embeddingAllowed === false || font.embeddingPolicy === "restricted") continue;
+    const row = await db.fonts.get(font.assetId);
+    if (!row) throw new Error(`글꼴 파일을 찾을 수 없습니다: ${font.family}`);
+    bytes += row.blob.size; if (bytes > 100 * 1024 * 1024) throw new Error("글꼴을 포함한 백업이 100MB를 넘습니다.");
+    zip.file(`fonts/${font.assetId}.bin`, await row.blob.arrayBuffer());
+  }
+  zip.file("manifest.json", JSON.stringify(manifest));
+  return zip.generateAsync({type:"blob",compression:"STORE"});
+}
+
+export async function downloadCanvasPreview(name: string) {
+  const canvas = document.querySelector<HTMLCanvasElement>("canvas.lower-canvas");
+  if (!canvas) throw new Error("패널을 먼저 열어 주세요.");
+  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error("미리보기를 생성하지 못했습니다.")), "image/png"));
+  const url = URL.createObjectURL(blob); const link = document.createElement("a");
+  link.href = url; link.download = `${safeName(name)}-preview.png`; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export async function openPackage(file: File): Promise<PanelProjectV1> {
+  if (file.size > 100 * 1024 * 1024) throw new Error("작업 파일은 100MB 이하로 준비해 주세요.");
   const zip = await JSZip.loadAsync(file);
   const manifestEntry = zip.file("manifest.json");
   if (!manifestEntry) throw new Error("manifest.json이 없는 프로젝트입니다.");
   const rawProject = JSON.parse(await manifestEntry.async("string")) as PanelProjectV1;
   const version = (rawProject as unknown as { schemaVersion?: string }).schemaVersion;
   if (!version || !["1.0", "1.1", "1.2", "1.3", "1.4"].includes(version)) throw new Error(`지원하지 않는 스키마 ${version ?? "없음"}`);
+  if (!rawProject || !Array.isArray(rawProject.boards) || !rawProject.boards.length || !Array.isArray(rawProject.elements) || !Array.isArray(rawProject.assets)) throw new Error("프로젝트의 보드·레이어·자산 목록을 확인해 주세요.");
   const project = migrateProject(rawProject);
+  // Import as a separate copy; old local work and asset bytes must never be overwritten.
+  const identities = new Map<string,string>([[project.id, crypto.randomUUID()]]);
+  for (const asset of project.assets) identities.set(asset.id, crypto.randomUUID());
+  for (const font of project.fonts) if (!identities.has(font.assetId)) identities.set(font.assetId, crypto.randomUUID());
   for (const asset of project.assets) {
     const path = asset.archivePath ?? Object.keys(zip.files).find((key) => key.startsWith(`assets/${asset.id}.`));
     const safePath = path && path.startsWith("assets/") && !path.split("/").includes("..") ? path : null;
@@ -106,14 +162,14 @@ export async function openPackage(file: File): Promise<PanelProjectV1> {
     const blob = await entry.async("blob");
     const previewPaths = Object.keys(zip.files).filter((key) => key.startsWith(`previews/assets/${asset.id}/`)).sort((left, right) => Number(left.split("/").at(-1)?.split(".")[0]) - Number(right.split("/").at(-1)?.split(".")[0]));
     const pageThumbnails = await Promise.all(previewPaths.map((previewPath) => zip.file(previewPath)!.async("blob")));
-    await db.assets.put({ id: asset.id, projectId: project.id, blob, thumbnail: pageThumbnails[0], pageThumbnails, updatedAt: new Date().toISOString() });
+    await db.assets.put({ id: identities.get(asset.id)!, projectId: identities.get(project.id)!, blob, thumbnail: pageThumbnails[0], pageThumbnails, updatedAt: new Date().toISOString() });
   }
   for (const font of project.fonts) {
     const path = Object.keys(zip.files).find((key) => key.startsWith(`fonts/${font.assetId}.`));
     const entry = path ? zip.file(path) : null;
-    if (entry) await db.fonts.put({ id: font.assetId, projectId: project.id, blob: await entry.async("blob"), updatedAt: new Date().toISOString() });
+    if (entry) await db.fonts.put({ id: identities.get(font.assetId)!, projectId: identities.get(project.id)!, blob: await entry.async("blob"), updatedAt: new Date().toISOString() });
   }
-  return project;
+  return JSON.parse(JSON.stringify(project), (_key, value: unknown) => typeof value === "string" ? (identities.get(value) ?? value) : value) as PanelProjectV1;
 }
 
 export const safeName = (name: string) => name.replace(/[\\/:*?"<>|]/g, "_").trim() || "archipanel";

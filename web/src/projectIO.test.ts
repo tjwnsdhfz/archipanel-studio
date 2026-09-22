@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
 import { makeProject } from "./types";
-import { downloadFromEndpoint, openPackage } from "./projectIO";
+import { buildLocalPackage, downloadFromEndpoint, openPackage } from "./projectIO";
 
 const database = vi.hoisted(() => ({
   assets: { get: vi.fn(), put: vi.fn() },
@@ -17,6 +17,7 @@ describe("portable project recovery", () => {
     const reopened = await openPackage(input as unknown as File);
     expect(reopened.schemaVersion).toBe("1.4");
     expect(reopened.name).toBe(project.name);
+    expect(reopened.id).not.toBe(project.id);
     expect(reopened.boards[0].id).toBe(project.boards[0].id);
   });
   it("rejects future schemas without writing local assets", async () => {
@@ -29,5 +30,25 @@ describe("portable project recovery", () => {
     project.assets.push({ id: "missing", name: "도면.png", mime: "image/png", sizeBytes: 100, review: [] });
     database.assets.get.mockResolvedValue(undefined);
     await expect(downloadFromEndpoint(project, "/api/export/pdf", "board.pdf")).rejects.toThrow("도면.png");
+  });
+  it("backs up original bytes without requesting a server and reopens the package", async () => {
+    const project = makeProject("내 이미지 패널");
+    project.assets.push({id:"image-1",name:"도면.png",mime:"image/png",sizeBytes:3,review:[]});
+    database.assets.get.mockResolvedValue({blob:new Blob([new Uint8Array([1,2,3])],{type:"image/png"})});
+    const archive = await buildLocalPackage(project);
+    const bytes = await archive.arrayBuffer();
+    const zip = await JSZip.loadAsync(bytes);
+    expect(await zip.file("assets/image-1.bin")!.async("uint8array")).toEqual(new Uint8Array([1,2,3]));
+    const reopened = await openPackage(bytes as unknown as File);
+    expect(reopened.name).toBe(project.name);
+    expect(reopened.id).not.toBe(project.id);
+    expect(reopened.assets[0].archivePath).toBe("assets/image-1.bin");
+    expect(reopened.assets[0].id).not.toBe("image-1");
+    expect(database.assets.put.mock.calls[0][0].id).toBe(reopened.assets[0].id);
+  });
+  it("keeps missing originals from becoming incomplete browser backups", async () => {
+    const project=makeProject(); project.assets.push({id:"lost",name:"lost.png",mime:"image/png",sizeBytes:1,review:[]});
+    database.assets.get.mockResolvedValue(undefined);
+    await expect(buildLocalPackage(project)).rejects.toThrow("lost.png");
   });
 });

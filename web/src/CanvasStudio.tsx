@@ -33,7 +33,7 @@ export function CanvasStudio({ critique, critiqueSettings }: { critique?: Critiq
     if (!shell.current || !board) return;
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      setScale(Math.max(0.08, Math.min((width - 120) / board.widthMm, (height - 120) / board.heightMm)) * zoom);
+      setScale(Math.max(0.08, Math.min((width - 16) / board.widthMm, (height - 16) / board.heightMm)) * zoom);
     });
     observer.observe(shell.current);
     return () => observer.disconnect();

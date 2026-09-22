@@ -6,6 +6,7 @@ export type SystemFontDefinition = { id: string; family: string; style: string; 
 let catalogCache: SystemFontDefinition[] | null = null;
 
 export async function fetchSystemFonts(): Promise<SystemFontDefinition[]> {
+  if (import.meta.env.VITE_STATIC_MODE === "true") return [];
   if (catalogCache) return catalogCache;
   const response = await fetch("/api/fonts/system");
   if (!response.ok) return [];
